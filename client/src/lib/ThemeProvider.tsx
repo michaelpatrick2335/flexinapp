@@ -31,10 +31,16 @@ const ThemeContext = createContext<ThemeContextValue>({
 // LocalStorage keys (let theme persist across reloads before we have a user)
 const LS_SEX = "flexin_sex";
 const LS_OVERRIDE = "flexin_theme_override";
+const LS_ONBOARDED = "flexin_onboarding_complete";
 
+// Pre-Sex-Select screens (Welcome / Create Account / Name & Email) are
+// hard-locked to the blue theme until the user picks their sex on Sex Select.
+// We only honor saved sex/override preferences once onboarding completes.
 function readInitial(): Theme {
   if (typeof window === "undefined") return BLUE_THEME;
   try {
+    const onboarded = localStorage.getItem(LS_ONBOARDED) === "1";
+    if (!onboarded) return BLUE_THEME;
     const sex = (localStorage.getItem(LS_SEX) || "unspecified") as Sex;
     const override = localStorage.getItem(LS_OVERRIDE) as ThemeName | null;
     return themeFor(sex, override);
@@ -58,6 +64,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(LS_SEX, opts.sex);
         if (opts.override) localStorage.setItem(LS_OVERRIDE, opts.override);
         else localStorage.removeItem(LS_OVERRIDE);
+        // Sex Select is the gate — once a user calls this, onboarding is
+        // considered far enough along that we should honor the picked theme
+        // on subsequent app launches.
+        localStorage.setItem(LS_ONBOARDED, "1");
       } catch {}
       setTheme(next);
     },
