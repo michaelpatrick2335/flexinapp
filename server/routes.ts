@@ -41,9 +41,13 @@ if (!fs.existsSync(PROFILE_PIC_DIR)) fs.mkdirSync(PROFILE_PIC_DIR, { recursive: 
 const profilePicUpload = multer({
   storage: multer.diskStorage({
     destination: PROFILE_PIC_DIR,
-    filename: (_req, file, cb) => {
+    filename: (req, file, cb) => {
       const ext = path.extname(file.originalname) || ".jpg";
-      cb(null, `profile${ext}`);
+      // Per-user filename so multiple Flexin accounts coexist
+      let userId = 0;
+      try { userId = (getCurrentUser(req as any) as any).id || 0; } catch {}
+      const ts = Date.now();
+      cb(null, `user_${userId}_${ts}${ext}`);
     },
   }),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB max
@@ -628,33 +632,40 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     profilePicUpload.single("image")(req, res, (err) => {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-      // Save path relative to cwd in the user record
-      const relativePath = `/api/profile-pic/file`;
       const user = getCurrentUser(req);
+      // Remove previous profile pics for this user
+      try {
+        const old = fs.readdirSync(PROFILE_PIC_DIR).filter(f => f.startsWith(`user_${user.id}_`) && path.join(PROFILE_PIC_DIR, f) !== req.file!.path);
+        old.forEach(f => { try { fs.unlinkSync(path.join(PROFILE_PIC_DIR, f)); } catch {} });
+      } catch {}
       const updated = storage.updateUser(user.id, { profilePic: req.file.path });
-      res.json({ url: relativePath, user: updated });
+      const url = `/api/profile-pic/${user.id}?t=${Date.now()}`;
+      res.json({ url, user: updated });
     });
   });
 
-  // Serve profile picture: GET /api/profile-pic/file
-  app.get("/api/profile-pic/file", (_req, res) => {
-    // Find the file in profile-pics dir
+  // Serve profile picture by user id: GET /api/profile-pic/:userId
+  app.get("/api/profile-pic/:userId", (req, res) => {
+    const userId = parseInt(req.params.userId, 10);
+    if (!Number.isFinite(userId)) return res.status(400).send("bad id");
     const files = fs.existsSync(PROFILE_PIC_DIR) ? fs.readdirSync(PROFILE_PIC_DIR) : [];
-    const pic = files.find(f => /^profile\./i.test(f));
-    if (!pic) return res.status(404).json({ error: "No profile pic" });
+    // Latest file for that user
+    const candidates = files.filter(f => f.startsWith(`user_${userId}_`)).sort();
+    const pic = candidates[candidates.length - 1];
+    if (!pic) return res.status(404).send("no avatar");
     const filePath = path.join(PROFILE_PIC_DIR, pic);
     const ext = path.extname(pic).toLowerCase();
     const mimeMap: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp" };
     res.setHeader("Content-Type", mimeMap[ext] || "image/jpeg");
-    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Cache-Control", "public, max-age=300");
     fs.createReadStream(filePath).pipe(res);
   });
 
   // Delete profile picture: DELETE /api/profile-pic
-  app.delete("/api/profile-pic", (_req, res) => {
-    const files = fs.existsSync(PROFILE_PIC_DIR) ? fs.readdirSync(PROFILE_PIC_DIR) : [];
-    files.filter(f => /^profile\./i.test(f)).forEach(f => fs.unlinkSync(path.join(PROFILE_PIC_DIR, f)));
+  app.delete("/api/profile-pic", (req, res) => {
     const user = getCurrentUser(req);
+    const files = fs.existsSync(PROFILE_PIC_DIR) ? fs.readdirSync(PROFILE_PIC_DIR) : [];
+    files.filter(f => f.startsWith(`user_${user.id}_`)).forEach(f => { try { fs.unlinkSync(path.join(PROFILE_PIC_DIR, f)); } catch {} });
     const updated = storage.updateUser(user.id, { profilePic: null as any });
     res.json({ user: updated });
   });
@@ -813,7 +824,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           xp,
           xpToNext,
           streakDays,
-          avatarUrl: null,
+          avatarUrl: user.profilePic ? `/api/profile-pic/${user.id}` : null,
         },
         muscleGroups,
         bodyDeltas,
@@ -1173,16 +1184,21 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
         const row = inserted[0];
 
-        // Generate photorealistic body render (Style B). Best-effort —
-        // we save the path back to the row if it succeeds.
+        // Generate photorealistic body render (Style B) ASYNCHRONOUSLY.
+        // The client gets the analysis stats immediately and polls /api/progress
+        // (or GET /api/progress/scan/:id) for the render once it's ready.
         const sexForRender: "male" | "female" = user.sex === "female" ? "female" : "male";
-        const renderPath = await generateBodyRender(analysis, sexForRender, row.id);
-        if (renderPath) {
-          db.update(schema.scan)
-            .set({ renderPath } as any)
-            .where(eq(schema.scan.id, row.id))
-            .run();
-        }
+        generateBodyRender(analysis, sexForRender, row.id)
+          .then((renderPath) => {
+            if (renderPath) {
+              db.update(schema.scan)
+                .set({ renderPath } as any)
+                .where(eq(schema.scan.id, row.id))
+                .run();
+              console.log(`[scan ${row.id}] render ready: ${renderPath}`);
+            }
+          })
+          .catch((err) => console.error(`[scan ${row.id}] render failed`, err));
 
         res.json({
           ok: true,
@@ -1191,7 +1207,8 @@ export async function registerRoutes(httpServer: Server, app: Express) {
             id: row.id,
             date: row.scannedAt.slice(0, 10),
             photoUrl: `/api/progress/photo/${row.id}`,
-            renderUrl: renderPath ? `/api/progress/render/${row.id}` : null,
+            renderUrl: null, // pending; client polls for it
+            renderStatus: "pending",
             silhouetteParams: analysis.silhouetteParams,
             muscleEmphasis: analysis.muscleEmphasis,
             buildLabel: analysis.buildLabel,
@@ -1249,6 +1266,50 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       fs.createReadStream(row.photoPath).pipe(res);
     } catch (e) {
       res.status(500).send("error");
+    }
+  });
+
+  // FLEXIN: full Feed payload (Squad activity, milestones, MVP callouts, PRs)
+  app.get("/api/feed", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const isFemale = user.sex === "female";
+
+      // Curated feed posts — richer than the dashboard summary.
+      // In production this comes from squad_activity + workout + scan tables.
+      const posts = isFemale
+        ? [
+            { id: 101, userName: "Jasmine", initials: "J", color: "#FF4D8F", kind: "workout",  title: "Glute Day",            body: "Hip thrusts: 3x12 @ 95lb. Felt strong.", energyDelta: 9,  minutesAgo: 8,   reactions: { fire: 12, heart: 4, flex: 3 }, comments: 2 },
+            { id: 102, userName: "Mia",     initials: "M", color: "#FF7AB6", kind: "milestone", title: "100 hip thrust club",  body: "Hit 100 reps this week. Onto 150 next.",  energyDelta: 5,  minutesAgo: 47,  reactions: { heart: 8, fire: 6 }, comments: 4 },
+            { id: 103, userName: "Riley",   initials: "R", color: "#FF8FA3", kind: "mvp",       title: "Weekly MVP",          body: "Riley topped the squad with +38 energy.", energyDelta: 0,  minutesAgo: 110, reactions: { fire: 18, heart: 9, flex: 5 }, comments: 7 },
+            { id: 104, userName: "Sasha",   initials: "S", color: "#C7517A", kind: "scan",      title: "New scan posted",     body: "Down 1.4% body fat. Lifts are paying off.", energyDelta: 4,  minutesAgo: 240, reactions: { heart: 11, fire: 3 }, comments: 3 },
+            { id: 105, userName: "Bri",     initials: "B", color: "#9C2B5B", kind: "workout",   title: "Core Day",             body: "3 rounds. Plank PR — 90s.",                 energyDelta: 6,  minutesAgo: 720, reactions: { flex: 6, fire: 3 }, comments: 1 },
+          ]
+        : [
+            { id: 201, userName: "Marcus", initials: "M", color: "#1E5FFF", kind: "workout",  title: "Push Day",            body: "Bench: 3x5 @ 225. Smooth reps.",          energyDelta: 8,  minutesAgo: 18,  reactions: { fire: 14, flex: 4 }, comments: 3 },
+            { id: 202, userName: "Dre",    initials: "D", color: "#3E7BFF", kind: "pr",        title: "315lb bench PR",      body: "Locked it out clean. 1RM up 10lb this block.", energyDelta: 12, minutesAgo: 64,  reactions: { fire: 22, bolt: 8, flex: 6 }, comments: 9 },
+            { id: 203, userName: "Trev",   initials: "T", color: "#5B92FF", kind: "mvp",       title: "Weekly MVP",          body: "Trev topped the squad with +42 energy.",  energyDelta: 0,  minutesAgo: 132, reactions: { fire: 19, flex: 7 }, comments: 5 },
+            { id: 204, userName: "Kane",   initials: "K", color: "#7BAEFF", kind: "scan",      title: "New scan posted",     body: "Chest up 12%, arms +18%. Cut paying off.", energyDelta: 5,  minutesAgo: 320, reactions: { fire: 8, flex: 4 }, comments: 2 },
+            { id: 205, userName: "Jake",   initials: "J", color: "#1240B0", kind: "workout",   title: "Leg Day",             body: "Squat: 5x5 @ 275. Quads cooked.",         energyDelta: 7,  minutesAgo: 600, reactions: { fire: 9, bolt: 3 }, comments: 2 },
+          ];
+
+      // Daily squad summary at top
+      const summary = {
+        squadName: isFemale ? "Iron Sisters" : "Iron Brotherhood",
+        squadEnergyToday: 142,
+        squadEnergyTarget: 200,
+        activeMembers: 5,
+        memberCount: 6,
+      };
+
+      res.json({
+        summary,
+        posts,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("/api/feed", e);
+      res.status(500).json({ error: "Failed to load feed" });
     }
   });
 

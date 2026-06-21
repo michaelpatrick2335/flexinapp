@@ -63,6 +63,12 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
     queryKey: ["/api/progress"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 30_000,
+    // Poll every 3s while the latest scan render is still being generated.
+    refetchInterval: (q) => {
+      const d = q.state.data as ProgressPayload | undefined;
+      if (!d?.hasScan) return false;
+      return d.scanHero.renderUrl ? false : 3_000;
+    },
   });
 
   // Upload state for the Take Progress Photo flow
@@ -244,8 +250,28 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
                       width: "92%", height: "100%",
                       filter: `drop-shadow(0 0 10px ${t.accentGlow})`,
                       position: "relative",
+                      animation: data.hasScan ? "flexinPulse 1.6s ease-in-out infinite" : undefined,
                     }}
                   />
+                  {data.hasScan && (
+                    <div style={{
+                      position: "absolute", bottom: 8, left: 8, right: 8,
+                      background: `${t.accent}cc`,
+                      color: t.accentText,
+                      fontSize: 10, fontWeight: 800, letterSpacing: 0.4,
+                      padding: "5px 8px", borderRadius: 8,
+                      textAlign: "center",
+                      backdropFilter: "blur(4px)",
+                    }}>
+                      Rendering your physique…
+                    </div>
+                  )}
+                  <style>{`
+                    @keyframes flexinPulse {
+                      0%, 100% { opacity: 0.6; }
+                      50% { opacity: 1; }
+                    }
+                  `}</style>
                 </>
               )}
             </div>

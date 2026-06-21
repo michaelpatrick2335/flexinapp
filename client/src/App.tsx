@@ -18,6 +18,7 @@ import { Profile } from "@/pages/Profile";
 import { NotificationSettings } from "@/pages/NotificationSettings";
 import { PrivacySettings } from "@/pages/PrivacySettings";
 import { Progress } from "@/pages/Progress";
+import { Feed } from "@/pages/Feed";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -284,7 +285,8 @@ type Screen =
   | { name: "profile" }
   | { name: "notification-settings" }
   | { name: "privacy-settings" }
-  | { name: "progress" };
+  | { name: "progress" }
+  | { name: "feed" };
 
 function AuthenticatedShell() {
   const [screen, setScreen] = useState<Screen>({ name: "home" });
@@ -308,10 +310,22 @@ function AuthenticatedShell() {
     );
   }
 
+  if (screen.name === "feed") {
+    return (
+      <Feed
+        onBack={() => setScreen({ name: "home" })}
+        onOpenSquad={() => setScreen({ name: "squad" })}
+        onOpenProgress={() => setScreen({ name: "progress" })}
+        onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
+        onOpenProfile={() => setScreen({ name: "profile" })}
+      />
+    );
+  }
+
   if (screen.name === "squad") {
     return (
       <Squad
-        onOpenFeed={() => setScreen({ name: "home" })}
+        onOpenFeed={() => setScreen({ name: "feed" })}
         onOpenSquad={() => setScreen({ name: "squad" })}
         onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
         onOpenProfile={() => setScreen({ name: "profile" })}
@@ -324,7 +338,7 @@ function AuthenticatedShell() {
     return (
       <Profile
         onBack={() => setScreen({ name: "home" })}
-        onOpenFeed={() => setScreen({ name: "home" })}
+        onOpenFeed={() => setScreen({ name: "feed" })}
         onOpenSquad={() => setScreen({ name: "squad" })}
         onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
         onOpenProgress={() => setScreen({ name: "progress" })}
@@ -353,7 +367,7 @@ function AuthenticatedShell() {
     return (
       <Progress
         onBack={() => setScreen({ name: "home" })}
-        onOpenFeed={() => setScreen({ name: "home" })}
+        onOpenFeed={() => setScreen({ name: "feed" })}
         onOpenSquad={() => setScreen({ name: "squad" })}
         onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
         onOpenProfile={() => setScreen({ name: "profile" })}
@@ -365,10 +379,7 @@ function AuthenticatedShell() {
     <Home
       onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
       onOpenSquad={() => setScreen({ name: "squad" })}
-      onOpenFeed={() => {
-        // TODO: dedicated Feed view
-        console.log("[flexin] open Feed");
-      }}
+      onOpenFeed={() => setScreen({ name: "feed" })}
       onOpenProfile={() => setScreen({ name: "profile" })}
       onOpenProgress={() => setScreen({ name: "progress" })}
     />

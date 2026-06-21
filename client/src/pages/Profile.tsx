@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
@@ -44,6 +44,7 @@ export function Profile({
   const t = useTheme();
   const isFemale = t.name === "pink";
 
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery<{ user: DashboardUser }>({
     queryKey: ["/api/dashboard"],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -51,6 +52,36 @@ export function Profile({
   });
 
   const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const userEmail = typeof window !== "undefined"
+    ? (localStorage.getItem("flexin_user_email") || "").trim()
+    : "";
+
+  async function handleAvatarSelected(file: File) {
+    setAvatarError(null);
+    setUploadingAvatar(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const resp = await fetch("/api/profile-pic", {
+        method: "POST",
+        body: fd,
+        headers: userEmail ? { "x-user-email": userEmail } : undefined,
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || `Upload failed (${resp.status})`);
+      }
+      await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    } catch (e: any) {
+      setAvatarError(e?.message || "Upload failed");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   if (isLoading || !data) {
     return (
@@ -119,22 +150,45 @@ export function Profile({
               }}>{initial}</span>
             )}
           </div>
+          {/* Hidden file input */}
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleAvatarSelected(f);
+              if (e.target) e.target.value = "";
+            }}
+          />
           {/* Edit pencil */}
           <button
             aria-label="Change profile picture"
-            onClick={() => {/* upload coming soon */}}
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={uploadingAvatar}
             style={{
               position: "absolute", right: 6, bottom: 6,
               width: 44, height: 44, borderRadius: 22,
               background: t.bgElevated,
               border: `2px solid ${t.accent}`,
               display: "grid", placeItems: "center",
-              cursor: "pointer",
+              cursor: uploadingAvatar ? "wait" : "pointer",
               boxShadow: `0 0 10px ${t.accentGlow}`,
+              opacity: uploadingAvatar ? 0.6 : 1,
             }}
           >
             <PencilIcon color={t.accent} />
           </button>
+          {/* Uploading overlay */}
+          {uploadingAvatar && (
+            <div style={{
+              position: "absolute", inset: 6, borderRadius: 78,
+              background: "rgba(0,0,0,0.55)",
+              display: "grid", placeItems: "center",
+              color: t.text, fontSize: 12, fontWeight: 700,
+            }}>Uploading…</div>
+          )}
         </div>
 
         <div style={{ marginTop: 18, fontSize: 32, fontWeight: 800, color: t.text, letterSpacing: -0.5 }}>
