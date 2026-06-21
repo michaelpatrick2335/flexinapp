@@ -703,6 +703,53 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         { day: "Sun", workouts: 1, energy: 9 },
       ];
 
+      // Evolution timeline (the silhouette progression on Home).
+      const evolutionTimeline = [
+        { key: "w1",   label: "Week 1",  intensity: 0.18 },
+        { key: "w6",   label: "Week 6",  intensity: 0.34 },
+        { key: "w12",  label: "Week 12", intensity: 0.52 },
+        { key: "w24",  label: "Week 24", intensity: 0.72 },
+        { key: "cur",  label: "Current", intensity: 1.0 },
+      ];
+
+      // Body part deltas (% change vs last scan).
+      const bodyDeltas = isFemale
+        ? [
+            { key: "glutes",    label: "GLUTES",    delta: 16 },
+            { key: "core",      label: "CORE",      delta: 14 },
+            { key: "legs",      label: "LEGS",      delta: 12 },
+            { key: "back",      label: "BACK",      delta:  9 },
+            { key: "overall",   label: "OVERALL",   delta: 13, isOverall: true },
+          ]
+        : [
+            { key: "chest",     label: "CHEST",     delta: 12 },
+            { key: "arms",      label: "ARMS",      delta: 18 },
+            { key: "shoulders", label: "SHOULDERS", delta: 15 },
+            { key: "legs",      label: "LEGS",      delta: 11 },
+            { key: "overall",   label: "OVERALL",   delta: 14, isOverall: true },
+          ];
+
+      // Energy is now a personal-energy %, not just squad energy.
+      const energy = {
+        percent: 86,
+        message: "High energy. Keep it up.",
+      };
+
+      // Streak + weekly scan + xp.
+      const streakDays = 14;
+      const xp = 2_450;
+      const xpToNext = 3_000;
+      const weeklyScanDaysLeft = 2;
+
+      // Monthly stats strip.
+      const monthStats = {
+        trainingDays: 28,
+        totalWorkouts: 42,
+        caloriesBurned: 12_450,
+        avgFormScore: 85,
+        unreadAlerts: 3,
+      };
+
       const coachMessage =
         formLevel >= 13
           ? "You're FORGING. Don't skip arms today."
@@ -711,11 +758,26 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           : "Two sessions this week. Get a third in by Sunday.";
 
       res.json({
-        user: { id: user.id, name: user.name, sex: user.sex, formLevel, formRank },
+        user: {
+          id: user.id,
+          name: user.name,
+          sex: user.sex,
+          formLevel,
+          formRank,
+          isPremium: !!user.isPremium,
+          xp,
+          xpToNext,
+          streakDays,
+        },
         muscleGroups,
+        bodyDeltas,
+        energy,
+        weeklyScanDaysLeft,
+        monthStats,
         activeSquad,
         squadFeed,
         evolution,
+        evolutionTimeline,
         coachMessage,
         generatedAt: new Date().toISOString(),
       });
