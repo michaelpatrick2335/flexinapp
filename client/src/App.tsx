@@ -7,6 +7,7 @@ import { Clipboard } from "@capacitor/clipboard";
 import { queryClient, getQueryFn, getUserEmail, clearUserEmail, hasPickedExperience } from "@/lib/queryClient";
 import { clearCustomExercisesForCurrentUser } from "@/lib/custom-breath-exercises";
 import { Welcome } from "@/pages/Welcome";
+import { CreateAccount } from "@/pages/CreateAccount";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -131,12 +132,32 @@ function AppContent() {
         />
       );
     }
-    // signup / login / trainer all currently fall through to the legacy
-    // Onboarding (Monky-era login screen). We will replace each of these
-    // with their dedicated screens in upcoming swaps:
-    //   signup  → Screens 2 (Create Account) + 3 (Name & Email) + 4 (Sex Select)
-    //   login   → dedicated Login screen
-    //   trainer → Trainer signup flow (same as signup but flagged isTrainer)
+
+    // Signup & trainer signup both start at the Create Account screen.
+    // Trainer path will later flag isTrainer=true after auth completes.
+    if (authMode === "signup" || authMode === "trainer") {
+      return (
+        <CreateAccount
+          onApple={() => {
+            // TODO: native Sign in with Apple bridge (Capacitor plugin)
+            // For now, fall through to the legacy onboarding so dev can keep moving.
+            setAuthMode("login");
+          }}
+          onGoogle={() => {
+            // TODO: Google OAuth
+            setAuthMode("login");
+          }}
+          onEmail={() => {
+            // TODO: route to Screen 3 (Name & Email). For now, legacy onboarding.
+            setAuthMode("login");
+          }}
+          onLogIn={() => setAuthMode("login")}
+          onBack={() => setAuthMode("welcome")}
+        />
+      );
+    }
+
+    // login still falls through to the legacy Onboarding for now
     return (
       <Onboarding
         onComplete={() => {
