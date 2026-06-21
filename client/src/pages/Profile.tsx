@@ -480,9 +480,9 @@ function BottomNav({
               border: "none", cursor: "pointer",
               display: "grid", placeItems: "center",
               boxShadow: `0 8px 24px ${t.accentGlow}`,
-              color: t.accentText, fontSize: 28, fontWeight: 800, lineHeight: 1,
+              color: t.accentText,
             }}
-          >+</button>
+          ><DumbbellGlyph color={t.accentText} size={26} /></button>
         </div>
         <NavBtn t={t} label="Progress" onClick={() => onOpenProgress?.()} icon={<ChartIcon color={active === "progress" ? t.accent : t.textMuted} />} active={active === "progress"} />
         <NavBtn t={t} label="Profile"  onClick={() => {}}                 icon={<PersonIcon color={active === "profile" ? t.accent : t.textMuted} />} active={active === "profile"} />
@@ -630,6 +630,19 @@ function ChartIcon({ color }: { color: string }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Bold filled dumbbell for the centre FAB on the bottom nav.
+function DumbbellGlyph({ color, size = 26 }: { color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <rect x="2"  y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="26" y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="6"  y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="23" y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="9"  y="14" width="14" height="4" rx="1"   fill={color} />
     </svg>
   );
 }

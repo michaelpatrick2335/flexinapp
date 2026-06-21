@@ -586,9 +586,9 @@ function BottomNav({ t, onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProfile
               border: "none", cursor: "pointer",
               display: "grid", placeItems: "center",
               boxShadow: `0 8px 24px ${t.accentGlow}`,
-              color: t.accentText, fontSize: 28, fontWeight: 800, lineHeight: 1,
+              color: t.accentText,
             }}
-          >+</button>
+          ><DumbbellGlyph color={t.accentText} size={26} /></button>
         </div>
         <NavBtn t={t} label="Progress" onClick={() => {}}     icon={<ChartIcon    color={active === "progress" ? t.accent : t.textMuted} />} active={active === "progress"} />
         <NavBtn t={t} label="Profile"  onClick={onOpenProfile} icon={<PersonIcon  color={active === "profile" ? t.accent : t.textMuted} />} active={active === "profile"} />
@@ -698,6 +698,19 @@ function Spinner({ color }: { color: string }) {
       <path d="M21 12a9 9 0 0 0-9-9" stroke={color} strokeWidth="2.4" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite" />
       </path>
+    </svg>
+  );
+}
+
+// Bold filled dumbbell for the centre FAB on the bottom nav.
+function DumbbellGlyph({ color, size = 26 }: { color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <rect x="2"  y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="26" y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="6"  y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="23" y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="9"  y="14" width="14" height="4" rx="1"   fill={color} />
     </svg>
   );
 }

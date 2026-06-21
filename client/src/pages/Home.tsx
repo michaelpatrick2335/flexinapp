@@ -97,7 +97,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 
       {/* ═════════════════════ SQUAD FEED + EVOLUTION (side by side) ═════════════════════ */}
       <div style={{ padding: "18px 14px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <SquadFeedCard t={t} feed={squadFeed} onOpenFeed={onOpenFeed} />
+        <SquadFeedCard t={t} feed={squadFeed} onOpenFeed={onOpenFeed} onOpenSquad={onOpenSquad} />
         <EvolutionCard t={t} timeline={evolutionTimeline} silhouette={silhouette} isFemale={isFemale} onOpenProgress={onOpenProgress} />
       </div>
 
@@ -290,12 +290,18 @@ function HeroSection({
 }
 
 // ════════════════════════════ SQUAD FEED ════════════════════════════
-function SquadFeedCard({ t, feed, onOpenFeed }: { t: any; feed: DashboardPayload["squadFeed"]; onOpenFeed: () => void }) {
+function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: DashboardPayload["squadFeed"]; onOpenFeed: () => void; onOpenSquad: () => void }) {
   return (
-    <div style={{ background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 16, padding: "12px 12px 10px" }}>
+    <div
+      onClick={onOpenSquad}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenSquad(); } }}
+      style={{ background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 16, padding: "12px 12px 10px", cursor: "pointer" }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5 }}>SQUAD FEED</span>
-        <button onClick={onOpenFeed} style={{ background: "none", border: "none", color: t.accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+        <button onClick={(e) => { e.stopPropagation(); onOpenSquad(); }} style={{ background: "none", border: "none", color: t.accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
           View all
         </button>
       </div>
@@ -326,11 +332,18 @@ function SquadFeedCard({ t, feed, onOpenFeed }: { t: any; feed: DashboardPayload
 function EvolutionCard({ t, timeline, silhouette, isFemale, onOpenProgress }: {
   t: any; timeline: DashboardPayload["evolutionTimeline"]; silhouette: string; isFemale: boolean; onOpenProgress?: () => void;
 }) {
+  const openProgress = () => onOpenProgress?.();
   return (
-    <div style={{ background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 16, padding: "12px 12px 14px" }}>
+    <div
+      onClick={openProgress}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProgress(); } }}
+      style={{ background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 16, padding: "12px 12px 14px", cursor: "pointer" }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5 }}>EVOLUTION</span>
-        <button onClick={onOpenProgress} style={{ background: "none", border: "none", color: t.accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+        <button onClick={(e) => { e.stopPropagation(); openProgress(); }} style={{ background: "none", border: "none", color: t.accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
           View all
         </button>
       </div>
@@ -450,11 +463,11 @@ function BottomNav({ t, onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
           style={{
             width: 60, height: 60, borderRadius: 30, border: "none",
             background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
-            color: t.accentText, fontSize: 30, fontWeight: 700, lineHeight: 1,
+            color: t.accentText,
             boxShadow: `0 12px 36px ${t.accentGlow}`, cursor: "pointer",
             display: "grid", placeItems: "center", marginTop: -18,
           }}
-        >+</button>
+        ><DumbbellGlyph color={t.accentText} size={28} /></button>
         <NavBtn t={t} label="Progress" onClick={() => onOpenProgress?.()} icon={<ChartIcon    color={t.textMuted} />} active={false} />
         <NavBtn t={t} label="Profile"  onClick={onOpenProfile}             icon={<ProfileIcon  color={t.textMuted} />} active={false} />
       </div>
@@ -563,6 +576,19 @@ function SquadIcon({ color, size = 22 }: { color: string; size?: number }) {
       <circle cx="17" cy="9" r="2.5" stroke={color} strokeWidth="1.8" />
       <path d="M3 19c0-3 2.7-5.5 6-5.5s6 2.5 6 5.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <path d="M14 19c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Bold filled dumbbell for the centre FAB on the bottom nav.
+function DumbbellGlyph({ color, size = 28 }: { color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <rect x="2"  y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="26" y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="6"  y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="23" y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="9"  y="14" width="14" height="4" rx="1"   fill={color} />
     </svg>
   );
 }

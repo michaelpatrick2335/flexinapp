@@ -849,11 +849,11 @@ function BottomNav({ t, active, onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpe
           style={{
             width: 60, height: 60, borderRadius: 30, border: "none",
             background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
-            color: t.accentText, fontSize: 30, fontWeight: 700, lineHeight: 1,
+            color: t.accentText,
             boxShadow: `0 12px 36px ${t.accentGlow}`, cursor: "pointer",
             display: "grid", placeItems: "center", marginTop: -18,
           }}
-        >+</button>
+        ><DumbbellGlyph color={t.accentText} size={28} /></button>
         <NavBtn t={t} label="Progress" onClick={() => onOpenProgress?.()} icon={<ChartIcon color={active === "progress" ? t.accent : t.textMuted} />} active={active === "progress"} />
         <NavBtn t={t} label="Profile"  onClick={onOpenProfile}            icon={<ProfileIcon color={active === "profile" ? t.accent : t.textMuted} />} active={active === "profile"} />
       </div>
@@ -1011,6 +1011,19 @@ function TrophyIcon({ color, glow, size = 64, compact = false }: { color: string
       <path d="M26 30v6c0 3 2.5 6 6 6s6-3 6-6v-6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <path d="M24 46h16M22 52h20" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <path d="M32 22l1.6 3.2 3.4.5-2.5 2.4.6 3.4L32 30l-3.1 1.6.6-3.4-2.5-2.4 3.4-.5L32 22z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+// Bold filled dumbbell for the centre FAB on the bottom nav.
+function DumbbellGlyph({ color, size = 28 }: { color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <rect x="2"  y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="26" y="11" width="4" height="10" rx="1.5" fill={color} />
+      <rect x="6"  y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="23" y="13" width="3" height="6"  rx="1"   fill={color} />
+      <rect x="9"  y="14" width="14" height="4" rx="1"   fill={color} />
     </svg>
   );
 }
