@@ -35,6 +35,89 @@ sqlite.exec(`
   );
 `);
 
+// ── Idempotent lazy migrations ──────────────────────────────────────
+// Better-sqlite3 doesn't natively support `ALTER TABLE ... ADD COLUMN IF NOT
+// EXISTS`. We inspect the columns and add what's missing so the app survives
+// schema bumps without a destructive reset.
+function ensureColumn(table: string, name: string, ddl: string) {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some(c => c.name === name)) {
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+// Columns added in earlier Flexin commits + this session
+ensureColumn("user", "sex",             "sex TEXT NOT NULL DEFAULT 'unspecified'");
+ensureColumn("user", "theme_override",  "theme_override TEXT");
+ensureColumn("user", "is_trainer",      "is_trainer INTEGER NOT NULL DEFAULT 0");
+ensureColumn("user", "active_group_id", "active_group_id INTEGER");
+ensureColumn("user", "pending_join_code","pending_join_code TEXT");
+ensureColumn("user", "form_level",      "form_level INTEGER NOT NULL DEFAULT 1");
+ensureColumn("user", "form_rank",       "form_rank TEXT NOT NULL DEFAULT 'AWAKENING'");
+ensureColumn("user", "squad_energy",    "squad_energy INTEGER NOT NULL DEFAULT 0");
+
+// Flexin v1 tables (exercise / workout / squads). Created lazily so a fresh
+// DB and an upgraded DB end up with the same shape.
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS exercise (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    name TEXT NOT NULL,
+    muscle_group TEXT NOT NULL,
+    category TEXT NOT NULL,
+    sex_target TEXT NOT NULL DEFAULT 'both',
+    is_custom INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS workout (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    energy_delta INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS workout_exercise (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_id INTEGER NOT NULL,
+    exercise_id INTEGER NOT NULL,
+    sets INTEGER NOT NULL DEFAULT 0,
+    reps INTEGER NOT NULL DEFAULT 0,
+    weight_lbs REAL NOT NULL DEFAULT 0,
+    order_idx INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS squad (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    owner_id INTEGER NOT NULL,
+    invite_code TEXT NOT NULL,
+    energy INTEGER NOT NULL DEFAULT 0,
+    mvp_user_id INTEGER,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS squad_member (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    squad_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    energy_today INTEGER NOT NULL DEFAULT 0,
+    is_ghost INTEGER NOT NULL DEFAULT 0,
+    joined_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS squad_activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    squad_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    message TEXT NOT NULL,
+    energy_delta INTEGER NOT NULL DEFAULT 0,
+    reactions TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+  );
+`);
+
 export interface IStorage {
   getUser(id: number): schema.User | undefined;
   getOrCreateUser(email?: string): schema.User;

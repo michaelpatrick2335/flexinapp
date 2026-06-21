@@ -10,6 +10,7 @@ import { Welcome } from "@/pages/Welcome";
 import { CreateAccount } from "@/pages/CreateAccount";
 import { NameEmail } from "@/pages/NameEmail";
 import { SexSelect } from "@/pages/SexSelect";
+import { Home } from "@/pages/Home";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -234,32 +235,31 @@ function AppContent() {
     );
   }
 
-  // First-ever login: show experience picker
-  // experienceDone state OR localStorage flag both bypass this — belt + suspenders
-  const needsExperiencePick = !experienceDone && user.totalSessions === 0 && !hasPickedExperience();
-  if (needsExperiencePick) {
-    return (
-      <ExperiencePicker
-        onComplete={() => {
-          // Set local state immediately — triggers re-render without any API round-trip
-          setExperienceDone(true);
-        }}
-      />
-    );
-  }
+  // Flexin v1: skip the legacy ExperiencePicker (meditation-era).
+  // The Sex Select screen + onboarding submission already collect everything
+  // we need for a first-time user.
+  void experienceDone; void setExperienceDone; void hasPickedExperience;
 
-  // Fully set up → tab shell (Tribe / Home / Profile)
+  // Fully set up → Flexin Home (Screen 5).
+  // The legacy TabShell (Tribe/Home/Profile, meditation/gold styling) is no
+  // longer rendered; the Home component has its own Feed/Squad/+/Profile nav.
   return (
-    <TabShell
-      user={user}
-      onLogout={() => {
-        // Wipe per-user local state BEFORE clearing the email so we know which
-        // bucket to clear. Prevents custom breath exercises (and any future
-        // per-user localStorage) from bleeding to the next account on this device.
-        clearCustomExercisesForCurrentUser();
-        clearUserEmail();
-        queryClient.clear();
-        window.location.reload();
+    <Home
+      onOpenLogWorkout={() => {
+        // TODO: route to Screen 6 (Log Workout)
+        console.log("[flexin] open Log Workout");
+      }}
+      onOpenSquad={() => {
+        // TODO: route to Screen 8 (Squad)
+        console.log("[flexin] open Squad");
+      }}
+      onOpenFeed={() => {
+        // TODO: dedicated Feed view
+        console.log("[flexin] open Feed");
+      }}
+      onOpenProfile={() => {
+        // TODO: route to Profile/Settings
+        console.log("[flexin] open Profile");
       }}
     />
   );

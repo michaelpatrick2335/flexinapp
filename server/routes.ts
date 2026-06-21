@@ -609,5 +609,88 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // Flexin Home / Dashboard payload (mock-but-realistic for v1).
+  app.get("/api/dashboard", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const isFemale = user.sex === "female";
+      const formLevel = (user as any).formLevel || 9;
+      const formRank =
+        formLevel >= 19 ? "MAX"
+        : formLevel >= 13 ? "FORGING"
+        : formLevel >= 8  ? "SURGING"
+        : formLevel >= 4  ? "BUILDING"
+        : "AWAKENING";
+
+      const muscleGroups = isFemale
+        ? [
+            { key: "glutes", label: "Glutes", progress: 78, streakDays: 5 },
+            { key: "core", label: "Core", progress: 62, streakDays: 3 },
+            { key: "legs", label: "Legs", progress: 71, streakDays: 4 },
+            { key: "back", label: "Back", progress: 44, streakDays: 2 },
+            { key: "shoulders", label: "Shoulders", progress: 38, streakDays: 1 },
+            { key: "arms", label: "Arms", progress: 29, streakDays: 0 },
+          ]
+        : [
+            { key: "chest", label: "Chest", progress: 81, streakDays: 5 },
+            { key: "back", label: "Back", progress: 67, streakDays: 4 },
+            { key: "arms", label: "Arms", progress: 72, streakDays: 4 },
+            { key: "shoulders", label: "Shoulders", progress: 58, streakDays: 3 },
+            { key: "legs", label: "Legs", progress: 45, streakDays: 2 },
+            { key: "core", label: "Core", progress: 51, streakDays: 2 },
+          ];
+
+      const activeSquad = {
+        id: 1,
+        name: isFemale ? "Glute Goddesses" : "Iron Brotherhood",
+        energy: 73,
+        memberCount: 6,
+        mvp: { userId: 2, name: isFemale ? "Jasmine" : "Marcus", contribution: 28 },
+      };
+
+      const squadFeed = isFemale
+        ? [
+            { id: 1, userName: "Jasmine", message: "crushed Glute Day — +9 energy", kind: "workout", energyDelta: 9, reactions: { fire: 4, flex: 2 }, minutesAgo: 12 },
+            { id: 2, userName: "Mia", message: "hit 100 hip thrusts this week", kind: "milestone", energyDelta: 5, reactions: { heart: 6, bolt: 3 }, minutesAgo: 47 },
+            { id: 3, userName: "Riley", message: "named Weekly MVP", kind: "mvp", energyDelta: 0, reactions: { fire: 8, heart: 5 }, minutesAgo: 110 },
+          ]
+        : [
+            { id: 1, userName: "Marcus", message: "crushed Push Day — +8 energy", kind: "workout", energyDelta: 8, reactions: { fire: 5, flex: 3 }, minutesAgo: 18 },
+            { id: 2, userName: "Dre", message: "hit a 315 bench PR", kind: "milestone", energyDelta: 6, reactions: { bolt: 7, fire: 4 }, minutesAgo: 64 },
+            { id: 3, userName: "Trev", message: "named Weekly MVP", kind: "mvp", energyDelta: 0, reactions: { fire: 9, flex: 4 }, minutesAgo: 132 },
+          ];
+
+      const evolution = [
+        { day: "Mon", workouts: 1, energy: 12 },
+        { day: "Tue", workouts: 0, energy: 4 },
+        { day: "Wed", workouts: 1, energy: 14 },
+        { day: "Thu", workouts: 1, energy: 11 },
+        { day: "Fri", workouts: 1, energy: 16 },
+        { day: "Sat", workouts: 1, energy: 13 },
+        { day: "Sun", workouts: 1, energy: 9 },
+      ];
+
+      const coachMessage =
+        formLevel >= 13
+          ? "You're FORGING. Don't skip arms today."
+          : formLevel >= 8
+          ? "Squad's hot — stack one more session before Friday."
+          : "Two sessions this week. Get a third in by Sunday.";
+
+      res.json({
+        user: { id: user.id, name: user.name, sex: user.sex, formLevel, formRank },
+        muscleGroups,
+        activeSquad,
+        squadFeed,
+        evolution,
+        coachMessage,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("/api/dashboard", e);
+      res.status(500).json({ error: "Failed to load dashboard" });
+    }
+  });
+
   return httpServer;
 }
