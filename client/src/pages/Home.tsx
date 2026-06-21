@@ -92,7 +92,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
       {/* ═════════════════════ SQUAD FEED + EVOLUTION (side by side) ═════════════════════ */}
       <div style={{ padding: "18px 14px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <SquadFeedCard t={t} feed={squadFeed} onOpenFeed={onOpenFeed} />
-        <EvolutionCard t={t} timeline={evolutionTimeline} silhouette={silhouette} onOpenProgress={onOpenProgress} />
+        <EvolutionCard t={t} timeline={evolutionTimeline} silhouette={silhouette} isFemale={isFemale} onOpenProgress={onOpenProgress} />
       </div>
 
       {/* ═════════════════════ MONTH STATS ═════════════════════ */}
@@ -127,17 +127,16 @@ function HeroSection({
     <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 18, minHeight: 580, overflow: "hidden" }}>
 
       {/* Background silhouette, centered, large.
-          The source PNG has a dark navy background baked in, so we blend with
-          'screen' which turns the dark areas transparent and lets the neon
-          glow lines show through against the page background. */}
+          - Male (dark theme): PNG has navy bg → 'screen' turns dark transparent, blue glow shows.
+          - Female (pink theme): PNG has light pink bg → 'multiply' turns light transparent, pink muscle lines show on light page. */}
       <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", pointerEvents: "none" }}>
         <img
           src={silhouette}
           alt={isFemale ? "Female muscle map" : "Male muscle map"}
           style={{
             height: 460, marginTop: 60, objectFit: "contain",
-            mixBlendMode: "screen",
-            opacity: 0.95,
+            mixBlendMode: isFemale ? "multiply" : "screen",
+            opacity: isFemale ? 1 : 0.95,
           }}
         />
       </div>
@@ -318,8 +317,8 @@ function SquadFeedCard({ t, feed, onOpenFeed }: { t: any; feed: DashboardPayload
 }
 
 // ════════════════════════════ EVOLUTION CARD ════════════════════════════
-function EvolutionCard({ t, timeline, silhouette, onOpenProgress }: {
-  t: any; timeline: DashboardPayload["evolutionTimeline"]; silhouette: string; onOpenProgress?: () => void;
+function EvolutionCard({ t, timeline, silhouette, isFemale, onOpenProgress }: {
+  t: any; timeline: DashboardPayload["evolutionTimeline"]; silhouette: string; isFemale: boolean; onOpenProgress?: () => void;
 }) {
   return (
     <div style={{ background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 16, padding: "12px 12px 14px" }}>
@@ -355,11 +354,11 @@ function EvolutionCard({ t, timeline, silhouette, onOpenProgress }: {
                   maxHeight: "100%",
                   maxWidth: "100%",
                   objectFit: "contain",
-                  mixBlendMode: "screen",
+                  mixBlendMode: isFemale ? "multiply" : "screen",
                   opacity: isCurrent ? 1 : 0.18 + w.intensity * 0.18,
                   filter: isCurrent
                     ? "none"
-                    : "grayscale(0.4) brightness(0.75)",
+                    : isFemale ? "grayscale(0.4) opacity(0.6)" : "grayscale(0.4) brightness(0.75)",
                 }}
               />
             </div>
