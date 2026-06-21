@@ -1023,5 +1023,56 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // FLEXIN: Progress screen — scan timeline + intro copy.
+  app.get("/api/progress", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const isFemale = user.sex === "female";
+
+      // Build a rolling 14-day-spaced list of mock scans, newest first.
+      // Real implementation will pull from a `scan` table once Take Photo lands.
+      const today = new Date();
+      const scans = [0, 1, 2, 3].map((i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i * 14);
+        return {
+          id: i + 1,
+          date: d.toISOString().slice(0, 10),
+          dateLabel: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          isLatest: i === 0,
+          // intensity tints down past scans in the UI
+          intensity: 1 - i * 0.22,
+        };
+      });
+
+      res.json({
+        user: {
+          name: user.name,
+          sex: user.sex,
+          isFemale,
+        },
+        intro: {
+          title: "Progress",
+          subtitle: "Track your transformation. See the real you evolve.",
+        },
+        scanHero: {
+          title: "Scan Your Physique",
+          body: "We'll turn it into your Flexin silhouette and track your progress over time.",
+          ctaText: "Take a photo.",
+          buttonLabel: "Take Progress Photo",
+        },
+        steps: [
+          { number: 1, title: "Take Photo",     blurb: "Front facing, good lighting" },
+          { number: 2, title: "We Process",     blurb: "We create your silhouette" },
+          { number: 3, title: "Track Progress", blurb: "See changes. Stay motivated." },
+        ],
+        recentScans: scans,
+      });
+    } catch (e) {
+      console.error("/api/progress", e);
+      res.status(500).json({ error: "Failed to load progress" });
+    }
+  });
+
   return httpServer;
 }
