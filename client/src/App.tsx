@@ -11,6 +11,8 @@ import { CreateAccount } from "@/pages/CreateAccount";
 import { NameEmail } from "@/pages/NameEmail";
 import { SexSelect } from "@/pages/SexSelect";
 import { Home } from "@/pages/Home";
+import { LogWorkout } from "@/pages/LogWorkout";
+import { SelectExercises } from "@/pages/SelectExercises";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -262,15 +264,43 @@ function AppContent() {
   // we need for a first-time user.
   void experienceDone; void setExperienceDone; void hasPickedExperience;
 
-  // Fully set up → Flexin Home (Screen 5).
-  // The legacy TabShell (Tribe/Home/Profile, meditation/gold styling) is no
-  // longer rendered; the Home component has its own Feed/Squad/+/Profile nav.
+  // Fully set up → Flexin Home (Screen 5) or one of the Log Workout sub-screens.
+  // We keep this in a tiny local state machine so the back nav between Home,
+  // Log Workout (Screen 6), and Select Exercises (Screen 7) is instant and the
+  // user's selection state survives navigation.
+  return <AuthenticatedShell />;
+}
+
+type Screen =
+  | { name: "home" }
+  | { name: "log-workout" }
+  | { name: "select-exercises"; category: { key: string; name: string; summary: string; icon: string } };
+
+function AuthenticatedShell() {
+  const [screen, setScreen] = useState<Screen>({ name: "home" });
+
+  if (screen.name === "log-workout") {
+    return (
+      <LogWorkout
+        onBack={() => setScreen({ name: "home" })}
+        onSelectCategory={(cat) => setScreen({ name: "select-exercises", category: cat })}
+      />
+    );
+  }
+
+  if (screen.name === "select-exercises") {
+    return (
+      <SelectExercises
+        category={screen.category}
+        onBack={() => setScreen({ name: "log-workout" })}
+        onCompleted={() => setScreen({ name: "home" })}
+      />
+    );
+  }
+
   return (
     <Home
-      onOpenLogWorkout={() => {
-        // TODO: route to Screen 6 (Log Workout)
-        console.log("[flexin] open Log Workout");
-      }}
+      onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
       onOpenSquad={() => {
         // TODO: route to Screen 8 (Squad)
         console.log("[flexin] open Squad");

@@ -787,5 +787,128 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // FLEXIN: Workout categories (Screen 6) - sex-conditional list.
+  app.get("/api/workout-categories", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const isFemale = user.sex === "female";
+
+      const maleCategories = [
+        { key: "push",      name: "Push Day",   summary: "Chest, Shoulders, Triceps", icon: "bolt"   },
+        { key: "pull",      name: "Pull Day",   summary: "Back, Biceps",                icon: "pull"   },
+        { key: "legs",      name: "Leg Day",    summary: "Quads, Hamstrings, Calves",  icon: "legs"   },
+        { key: "full-body", name: "Full Body",  summary: "Everything",                  icon: "full"   },
+        { key: "custom",    name: "Custom Day", summary: "Build your own",              icon: "custom" },
+      ];
+
+      const femaleCategories = [
+        { key: "glutes",    name: "Glute Day",  summary: "Glutes, Hamstrings",          icon: "glutes" },
+        { key: "lower",     name: "Lower Body", summary: "Quads, Calves, Glutes",       icon: "legs"   },
+        { key: "upper",     name: "Upper Body", summary: "Back, Shoulders, Arms",       icon: "upper"  },
+        { key: "full-body", name: "Full Body",  summary: "Everything",                  icon: "full"   },
+        { key: "custom",    name: "Custom Day", summary: "Build your own",              icon: "custom" },
+      ];
+
+      res.json({
+        sex: user.sex,
+        categories: isFemale ? femaleCategories : maleCategories,
+      });
+    } catch (e) {
+      console.error("/api/workout-categories", e);
+      res.status(500).json({ error: "Failed to load workout categories" });
+    }
+  });
+
+  // FLEXIN: Exercises by category (Screen 7).
+  app.get("/api/exercises", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const category = String(req.query.category || "push").toLowerCase();
+      const isFemale = user.sex === "female";
+
+      const LIBRARY: Record<string, string[]> = {
+        push:  ["Bench Press", "Incline Press", "Chest Fly", "Shoulder Press", "Lateral Raises", "Tricep Dips", "Skull Crushers", "Cable Pushdown", "Push-Up"],
+        pull:  ["Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Face Pull", "Bicep Curl", "Hammer Curl", "Reverse Fly"],
+        legs:  ["Back Squat", "Front Squat", "Romanian Deadlift", "Leg Press", "Walking Lunge", "Leg Extension", "Leg Curl", "Calf Raise"],
+        glutes: ["Hip Thrust", "Glute Bridge", "Romanian Deadlift", "Bulgarian Split Squat", "Cable Kickback", "Sumo Deadlift", "Step-Up"],
+        lower: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Hip Thrust", "Leg Press", "Leg Extension", "Leg Curl", "Calf Raise"],
+        upper: ["Lat Pulldown", "Seated Cable Row", "Shoulder Press", "Lateral Raises", "Bicep Curl", "Tricep Pushdown", "Chest Press"],
+        "full-body": ["Deadlift", "Back Squat", "Bench Press", "Pull-Up", "Shoulder Press", "Walking Lunge", "Plank", "Burpee"],
+        custom: [],
+      };
+
+      const list = (LIBRARY[category] || []).map((name, i) => ({
+        id: i + 1,
+        name,
+        category,
+        sexTarget: "both",
+        isCustom: false,
+      }));
+
+      res.json({ category, sex: user.sex, isFemale, exercises: list });
+    } catch (e) {
+      console.error("/api/exercises", e);
+      res.status(500).json({ error: "Failed to load exercises" });
+    }
+  });
+
+  // FLEXIN: Log a completed workout (Screen 7 COMPLETE WORKOUT CTA).
+  app.post("/api/workout", async (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const { category, exerciseNames, durationSeconds, notes } = req.body || {};
+
+      if (!category || typeof category !== "string") {
+        return res.status(400).json({ error: "category required" });
+      }
+      if (!Array.isArray(exerciseNames) || exerciseNames.length === 0) {
+        return res.status(400).json({ error: "at least one exercise required" });
+      }
+
+      const energyDelta = Math.min(25, 4 + Math.floor(exerciseNames.length * 2.2));
+      const now = new Date().toISOString();
+
+      const workoutRow = await storage.createWorkout({
+        userId: user.id,
+        category,
+        startedAt: now,
+        completedAt: now,
+        durationSeconds: typeof durationSeconds === "number" ? durationSeconds : 0,
+        notes: typeof notes === "string" ? notes : null,
+        energyDelta,
+      });
+
+      const selected: { name: string; exerciseId: number }[] = [];
+      for (const name of exerciseNames) {
+        if (typeof name !== "string" || !name.trim()) continue;
+        const ex = await storage.findOrCreateExercise({
+          userId: null,
+          name: name.trim(),
+          muscleGroup: category,
+          category,
+          sexTarget: "both",
+          isCustom: false,
+          createdAt: now,
+        });
+        selected.push({ name: name.trim(), exerciseId: ex.id });
+      }
+      for (let i = 0; i < selected.length; i++) {
+        await storage.createWorkoutExercise({
+          workoutId: workoutRow.id,
+          exerciseId: selected[i].exerciseId,
+          sets: 0,
+          reps: 0,
+          weightLbs: 0,
+          orderIdx: i,
+        });
+      }
+
+      res.json({ ok: true, workout: workoutRow, exercises: selected, energyDelta });
+    } catch (e) {
+      console.error("/api/workout", e);
+      res.status(500).json({ error: "Failed to log workout" });
+    }
+  });
+
   return httpServer;
 }

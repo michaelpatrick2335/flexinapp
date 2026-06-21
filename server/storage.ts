@@ -126,6 +126,11 @@ export interface IStorage {
   restoreUser(source: schema.User): schema.User;
   createSession(data: schema.InsertSession): schema.MeditationSession;
   getSessions(userId: number): schema.MeditationSession[];
+  // Flexin v1 — workout / exercise persistence.
+  findOrCreateExercise(data: schema.InsertExercise): schema.Exercise;
+  createWorkout(data: schema.InsertWorkout): schema.Workout;
+  createWorkoutExercise(data: schema.InsertWorkoutExercise): schema.WorkoutExercise;
+  getRecentWorkouts(userId: number, limit?: number): schema.Workout[];
 }
 
 export class Storage implements IStorage {
@@ -173,6 +178,31 @@ export class Storage implements IStorage {
 
   getSessions(userId: number): schema.MeditationSession[] {
     return db.select().from(schema.meditationSession).where(eq(schema.meditationSession.userId, userId)).all();
+  }
+
+  // ─── Flexin v1: exercises / workouts ────────────────────────────────
+
+  findOrCreateExercise(data: schema.InsertExercise): schema.Exercise {
+    const existing = db.select().from(schema.exercise)
+      .where(eq(schema.exercise.name, data.name))
+      .get();
+    if (existing) return existing;
+    return db.insert(schema.exercise).values(data).returning().get();
+  }
+
+  createWorkout(data: schema.InsertWorkout): schema.Workout {
+    return db.insert(schema.workout).values(data).returning().get();
+  }
+
+  createWorkoutExercise(data: schema.InsertWorkoutExercise): schema.WorkoutExercise {
+    return db.insert(schema.workoutExercise).values(data).returning().get();
+  }
+
+  getRecentWorkouts(userId: number, limit = 30): schema.Workout[] {
+    return db.select().from(schema.workout)
+      .where(eq(schema.workout.userId, userId))
+      .all()
+      .slice(0, limit);
   }
 }
 
