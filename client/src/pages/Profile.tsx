@@ -55,6 +55,8 @@ export function Profile({
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  // If the avatar image fails to load (404, stale URL), fall back to initial.
+  const [avatarImgFailed, setAvatarImgFailed] = useState(false);
 
   const userEmail = typeof window !== "undefined"
     ? (localStorage.getItem("flexin_user_email") || "").trim()
@@ -141,8 +143,13 @@ export function Profile({
             display: "grid", placeItems: "center",
             overflow: "hidden",
           }}>
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            {user.avatarUrl && !avatarImgFailed ? (
+              <img
+                src={user.avatarUrl}
+                alt=""
+                onError={() => setAvatarImgFailed(true)}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             ) : (
               <span style={{
                 fontSize: 78, fontWeight: 800, color: t.accent,

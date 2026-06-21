@@ -824,7 +824,16 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           xp,
           xpToNext,
           streakDays,
-          avatarUrl: user.profilePic ? `/api/profile-pic/${user.id}` : null,
+          avatarUrl: (() => {
+            // Only expose avatarUrl if a real per-user file exists on disk.
+            // The user.profilePic DB field is informational; stale paths or
+            // legacy formats shouldn't trigger a broken-image render.
+            try {
+              const files = fs.existsSync(PROFILE_PIC_DIR) ? fs.readdirSync(PROFILE_PIC_DIR) : [];
+              const hit = files.some(f => f.startsWith(`user_${user.id}_`));
+              return hit ? `/api/profile-pic/${user.id}` : null;
+            } catch { return null; }
+          })(),
         },
         muscleGroups,
         bodyDeltas,
