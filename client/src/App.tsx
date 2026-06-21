@@ -13,6 +13,7 @@ import { SexSelect } from "@/pages/SexSelect";
 import { Home } from "@/pages/Home";
 import { LogWorkout } from "@/pages/LogWorkout";
 import { SelectExercises } from "@/pages/SelectExercises";
+import { Squad } from "@/pages/Squad";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -274,7 +275,8 @@ function AppContent() {
 type Screen =
   | { name: "home" }
   | { name: "log-workout" }
-  | { name: "select-exercises"; category: { key: string; name: string; summary: string; icon: string } };
+  | { name: "select-exercises"; category: { key: string; name: string; summary: string; icon: string } }
+  | { name: "squad" };
 
 function AuthenticatedShell() {
   const [screen, setScreen] = useState<Screen>({ name: "home" });
@@ -298,13 +300,21 @@ function AuthenticatedShell() {
     );
   }
 
+  if (screen.name === "squad") {
+    return (
+      <Squad
+        onOpenFeed={() => setScreen({ name: "home" })}
+        onOpenSquad={() => setScreen({ name: "squad" })}
+        onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
+        onOpenProfile={() => console.log("[flexin] open Profile")}
+      />
+    );
+  }
+
   return (
     <Home
       onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
-      onOpenSquad={() => {
-        // TODO: route to Screen 8 (Squad)
-        console.log("[flexin] open Squad");
-      }}
+      onOpenSquad={() => setScreen({ name: "squad" })}
       onOpenFeed={() => {
         // TODO: dedicated Feed view
         console.log("[flexin] open Feed");

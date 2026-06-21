@@ -910,5 +910,112 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // FLEXIN: Squad screen (Screen 8) — single payload for the whole screen.
+  app.get("/api/squad", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const isFemale = user.sex === "female";
+
+      const memberPalette = isFemale
+        ? [
+            { name: "Jasmine", initials: "J", bg: "#FF4D8F" },
+            { name: "Mia",     initials: "M", bg: "#FF7AB6" },
+            { name: "Riley",   initials: "R", bg: "#FF8FA3" },
+            { name: "Sasha",   initials: "S", bg: "#C7517A" },
+            { name: "Bri",     initials: "B", bg: "#9C2B5B" },
+          ]
+        : [
+            { name: "Jake",   initials: "J", bg: "#1E5FFF" },
+            { name: "Chris",  initials: "C", bg: "#3E7BFF" },
+            { name: "Tyler",  initials: "T", bg: "#5C8BFF" },
+            { name: "Alex",   initials: "A", bg: "#2C4F9E" },
+            { name: "Mike",   initials: "M", bg: "#1A3A7A" },
+            { name: "Josh",   initials: "J", bg: "#13285A" },
+          ];
+
+      const squadName = isFemale ? "THE BABES" : "THE BOYS";
+      const energyTrend = [0.32, 0.28, 0.40, 0.36, 0.55, 0.50, 0.65, 0.78, 0.84];
+
+      const coach = {
+        name: "MAX",
+        sex: isFemale ? "female" : "male",
+        message: isFemale
+          ? "Bri has skipped 3 workouts. Discipline is the difference. The squad needs you."
+          : "Mike has skipped 3 workouts. Discipline is the difference. The squad needs you.",
+        cta: "LOCK IN",
+      };
+
+      const activity = isFemale
+        ? [
+            { id: 1, member: "Jasmine", kind: "workout",  text: "completed Glute Day",          highlight: "Glute Day",   time: "12m ago", reactionIcon: "fire",  reactionCount: 12 },
+            { id: 2, member: "Mia",     kind: "pr",       text: "hit a new PR on Hip Thrust",   highlight: "Hip Thrust",  time: "28m ago", reactionIcon: "fire",  reactionCount: 16, weight: "225 lbs", weightDelta: "+15 lbs" },
+            { id: 3, member: "Riley",   kind: "progress", text: "glute progress increased",     highlight: "Week Scan",   time: "1h ago",  reactionIcon: "clap",  reactionCount: 11, weekScan: "+3%" },
+            { id: 4, member: "Sasha",   kind: "live",     text: "started a workout",            highlight: "Live now",    time: "1h ago",  reactionIcon: "eyes",  reactionCount: 8 },
+            { id: 5, member: "Bri",     kind: "ghost",    text: "entered Ghost Mode",           highlight: "Ghost Mode",  time: "2h ago",  reactionIcon: "ghost", reactionCount: 5, lastLifted: "4 days ago" },
+          ]
+        : [
+            { id: 1, member: "Jake",  kind: "workout",  text: "completed Push Day",           highlight: "Push Day",    time: "12m ago", reactionIcon: "fire",  reactionCount: 12 },
+            { id: 2, member: "Chris", kind: "pr",       text: "hit a new PR on Bench Press",  highlight: "Bench Press", time: "28m ago", reactionIcon: "fire",  reactionCount: 16, weight: "225 lbs", weightDelta: "+15 lbs" },
+            { id: 3, member: "Tyler", kind: "progress", text: "chest progress increased",     highlight: "Week Scan",   time: "1h ago",  reactionIcon: "clap",  reactionCount: 11, weekScan: "+3%" },
+            { id: 4, member: "Alex",  kind: "live",     text: "started a workout",            highlight: "Live now",    time: "1h ago",  reactionIcon: "eyes",  reactionCount: 8 },
+            { id: 5, member: "Mike",  kind: "ghost",    text: "entered Ghost Mode",           highlight: "Ghost Mode",  time: "2h ago",  reactionIcon: "ghost", reactionCount: 5, lastLifted: "4 days ago" },
+          ];
+
+      const inactive = isFemale
+        ? [
+            { name: "Bri",   lastLifted: "4 days ago", energyImpact: -7 },
+            { name: "Sasha", lastLifted: "3 days ago", energyImpact: -5 },
+          ]
+        : [
+            { name: "Mike", lastLifted: "4 days ago", energyImpact: -7 },
+            { name: "Josh", lastLifted: "3 days ago", energyImpact: -5 },
+          ];
+
+      const mvp = isFemale
+        ? { name: "Riley", workouts: 5, prs: 3, evolutionDelta: 2 }
+        : { name: "Jake",  workouts: 5, prs: 3, evolutionDelta: 2 };
+
+      res.json({
+        squad: {
+          id: 1,
+          name: squadName,
+          memberCount: memberPalette.length,
+          streakDays: 14,
+          energy: { percent: 84, message: "High energy. Let's keep it up.", trend: energyTrend, direction: "up" },
+          members: memberPalette,
+        },
+        coach,
+        activity,
+        reactions: ["fire", "flex", "bolt", "rat"],
+        aiInsight: {
+          message: "2 members inactive. Squad energy could drop if no one steps up.",
+          cta: "MOTIVATE THEM",
+          inactiveMembers: inactive,
+        },
+        ghostMode: {
+          members: inactive,
+          message: "Bring them back. Squad needs you!",
+          cta: "CHALLENGE THEM",
+        },
+        mvp,
+        unreadNotifications: 3,
+      });
+    } catch (e) {
+      console.error("/api/squad", e);
+      res.status(500).json({ error: "Failed to load squad" });
+    }
+  });
+
+  app.post("/api/squad/react", (req, res) => {
+    try {
+      getCurrentUser(req);
+      const { kind } = req.body || {};
+      res.json({ ok: true, kind: kind || "fire" });
+    } catch (e) {
+      console.error("/api/squad/react", e);
+      res.status(500).json({ error: "Failed to react" });
+    }
+  });
+
   return httpServer;
 }
