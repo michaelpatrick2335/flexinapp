@@ -73,7 +73,7 @@ export function AvatarSelect({
       </button>
 
       {/* Heading */}
-      <div style={{ marginTop: "8vh", marginBottom: 18, zIndex: 1, padding: "0 8px" }}>
+      <div style={{ marginTop: 36, marginBottom: 14, zIndex: 1, padding: "0 8px" }}>
         <h1
           style={{
             fontSize: "1.75rem",
