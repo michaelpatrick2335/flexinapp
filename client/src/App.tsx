@@ -14,6 +14,9 @@ import { Home } from "@/pages/Home";
 import { LogWorkout } from "@/pages/LogWorkout";
 import { SelectExercises } from "@/pages/SelectExercises";
 import { Squad } from "@/pages/Squad";
+import { Profile } from "@/pages/Profile";
+import { NotificationSettings } from "@/pages/NotificationSettings";
+import { PrivacySettings } from "@/pages/PrivacySettings";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -276,7 +279,10 @@ type Screen =
   | { name: "home" }
   | { name: "log-workout" }
   | { name: "select-exercises"; category: { key: string; name: string; summary: string; icon: string } }
-  | { name: "squad" };
+  | { name: "squad" }
+  | { name: "profile" }
+  | { name: "notification-settings" }
+  | { name: "privacy-settings" };
 
 function AuthenticatedShell() {
   const [screen, setScreen] = useState<Screen>({ name: "home" });
@@ -306,9 +312,37 @@ function AuthenticatedShell() {
         onOpenFeed={() => setScreen({ name: "home" })}
         onOpenSquad={() => setScreen({ name: "squad" })}
         onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
-        onOpenProfile={() => console.log("[flexin] open Profile")}
+        onOpenProfile={() => setScreen({ name: "profile" })}
       />
     );
+  }
+
+  if (screen.name === "profile") {
+    return (
+      <Profile
+        onBack={() => setScreen({ name: "home" })}
+        onOpenFeed={() => setScreen({ name: "home" })}
+        onOpenSquad={() => setScreen({ name: "squad" })}
+        onOpenLogWorkout={() => setScreen({ name: "log-workout" })}
+        onOpenNotificationSettings={() => setScreen({ name: "notification-settings" })}
+        onOpenPrivacySettings={() => setScreen({ name: "privacy-settings" })}
+        onLogOut={() => {
+          clearUserEmail();
+          clearCustomExercisesForCurrentUser();
+          queryClient.clear();
+          window.location.hash = "";
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
+  if (screen.name === "notification-settings") {
+    return <NotificationSettings onBack={() => setScreen({ name: "profile" })} />;
+  }
+
+  if (screen.name === "privacy-settings") {
+    return <PrivacySettings onBack={() => setScreen({ name: "profile" })} />;
   }
 
   return (
@@ -319,10 +353,7 @@ function AuthenticatedShell() {
         // TODO: dedicated Feed view
         console.log("[flexin] open Feed");
       }}
-      onOpenProfile={() => {
-        // TODO: route to Profile/Settings
-        console.log("[flexin] open Profile");
-      }}
+      onOpenProfile={() => setScreen({ name: "profile" })}
     />
   );
 }

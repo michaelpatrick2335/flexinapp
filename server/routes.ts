@@ -761,6 +761,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         user: {
           id: user.id,
           name: user.name,
+          email: user.email,
           sex: user.sex,
           formLevel,
           formRank,
@@ -768,6 +769,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           xp,
           xpToNext,
           streakDays,
+          avatarUrl: null,
         },
         muscleGroups,
         bodyDeltas,
