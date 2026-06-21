@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Flexin — Midnight spiritual palette with gold/saffron accents */
+
+@layer base {
+  :root {
+    /* Backgrounds — deep midnight blue/indigo */
+    --background: 240 25% 7%;
+    --foreground: 45 30% 92%;
+    --card: 240 22% 10%;
+    --card-foreground: 45 30% 92%;
+    --popover: 240 22% 10%;
+    --popover-foreground: 45 30% 92%;
+
+    /* Primary — saffron gold */
+    --primary: 42 95% 55%;
+    --primary-foreground: 240 25% 7%;
+
+    /* Secondary — deep indigo surface */
+    --secondary: 240 18% 15%;
+    --secondary-foreground: 45 20% 80%;
+
+    /* Muted */
+    --muted: 240 15% 18%;
+    --muted-foreground: 240 10% 55%;
+
+    /* Accent — warm amber */
+    --accent: 38 90% 50%;
+    --accent-foreground: 240 25% 7%;
+
+    /* Destructive */
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and rings */
+    --border: 240 15% 20%;
+    --input: 240 15% 20%;
+    --ring: 42 95% 55%;
+
+    /* Radius */
+    --radius: 0.75rem;
+
+    /* Charts */
+    --chart-1: 42 95% 55%;
+    --chart-2: 270 60% 65%;
+    --chart-3: 180 60% 50%;
+    --chart-4: 140 60% 50%;
+    --chart-5: 0 60% 60%;
+
+    /* Custom Flexin tokens */
+    --color-gold: #f5c842;
+    --color-saffron: #e8952a;
+    --color-midnight: #0d0f1a;
+    --color-deep: #12152a;
+    --color-glow: rgba(245, 200, 66, 0.15);
+    --color-banana: #ffe247;
+    --font-display: 'Chillax', 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'General Sans', 'Inter', sans-serif;
+  }
+
+  /* Dark is the only mode — Flexin is a night-sky app */
+  .dark {
+    --background: 240 25% 7%;
+    --foreground: 45 30% 92%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    min-height: 100dvh;
+    background: radial-gradient(ellipse at top, #1a1f3a 0%, #0d0f1a 60%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    line-height: 1.15;
+  }
+}
+
+/* ============================================================
+   Flexin Custom Styles
+   ============================================================ */
+
+/* Glowing gold text */
+.text-gold {
+  color: var(--color-gold);
+  text-shadow: 0 0 20px rgba(245, 200, 66, 0.4);
+}
+
+/* Banana badge */
+.banana-badge {
+  background: var(--color-banana);
+  color: #1a1000;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+/* Meditation timer ring */
+.timer-ring-track {
+  stroke: rgba(255,255,255,0.08);
+}
+.timer-ring-progress {
+  stroke: var(--color-gold);
+  filter: drop-shadow(0 0 8px rgba(245, 200, 66, 0.6));
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* Tier badge colors */
+.tier-newbie { color: #4ade80; }
+.tier-experienced { color: #f59e0b; }
+.tier-enlightened { color: #a78bfa; }
+
+/* Breathing animation for idle state */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+.breathe { animation: breathe 4s ease-in-out infinite; }
+
+/* Pulse glow for active meditation */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(245, 200, 66, 0.2), 0 0 60px rgba(245, 200, 66, 0.05); }
+  50% { box-shadow: 0 0 40px rgba(245, 200, 66, 0.4), 0 0 100px rgba(245, 200, 66, 0.15); }
+}
+.pulse-glow { animation: pulseGlow 4s ease-in-out infinite; }
+
+/* Stars/particle background layer */
+.stars-bg {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 70%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(2px 2px at 10% 85%, rgba(255,255,255,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 15%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 65% 45%, rgba(255,255,255,0.2) 0%, transparent 100%),
+    radial-gradient(2px 2px at 45% 90%, rgba(255,255,255,0.15) 0%, transparent 100%);
+}
+
+/* Level up celebration */
+@keyframes levelUp {
+  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+  60% { transform: scale(1.2) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.level-up { animation: levelUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* Floating banana animation */
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
+}
+.float-banana { animation: floatUp 1.5s ease-out forwards; }
+
+/* Card glass effect */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Flexin SVG glow */
+.flexin-glow {
+  filter: drop-shadow(0 0 16px rgba(245, 200, 66, 0.3));
+}
+
+/* Progress ring */
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+/* Breath challenge narration fade */
+@keyframes fadeInUp {
+  0%  { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Pulse ring for hold phases */
+@keyframes pulseRing {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Fluid wordmark shimmer */
+@keyframes wordmark-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}

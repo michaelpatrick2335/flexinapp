@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flexin — Level Up Your Mind</title>
+  <meta name="description" content="The gamified meditation app that makes mindfulness addictive. Earn bananas, unlock levels, and transform your mind — one breath at a time." />
+  <meta property="og:title" content="Flexin — Level Up Your Mind" />
+  <meta property="og:description" content="The gamified meditation app. Earn bananas, unlock levels, transform your mind." />
+  <meta property="og:image" content="/app/flexin_circle.jpeg" />
+  <meta name="theme-color" content="#0d0f1a" />
+  <link rel="icon" href="/app/flexin_logo_transparent.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0d0f1a;
+      --navy2: #111320;
+      --navy3: #161929;
+      --gold: #f5c842;
+      --gold2: #e8952a;
+      --green: #2d8a4e;
+      --white: #ffffff;
+      --muted: rgba(255,255,255,0.55);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--navy);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(13,15,26,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(245,200,66,0.1);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-logo-circle {
+      height: 36px;
+      width: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .nav-logo-wordmark {
+      height: 28px;
+      width: auto;
+      object-fit: contain;
+      /* invert white→black, then shift hue to gold */
+      filter: invert(1) sepia(1) saturate(3) hue-rotate(5deg) brightness(1.05);
+    }
+
+    .nav-cta {
+      background: var(--gold);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 20px;
+      border-radius: 100px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245,200,66,0.35);
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(245,200,66,0.08) 0%, transparent 70%),
+                  radial-gradient(ellipse 60% 40% at 20% 80%, rgba(45,138,78,0.06) 0%, transparent 60%);
+    }
+
+    /* Fireflies */
+    .fireflies { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .firefly {
+      position: absolute; width: 6px; height: 6px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(245,200,66,1) 0%, rgba(245,200,66,0.55) 45%, rgba(245,200,66,0) 75%);
+      box-shadow: 0 0 8px 2px rgba(245,200,66,0.55), 0 0 18px 6px rgba(245,200,66,0.22);
+      opacity: 0; will-change: transform, opacity;
+    }
+    @keyframes firefly-drift-1 {
+      0% { transform: translate(0,0) scale(0.9); opacity: 0; }
+      15% { opacity: 0.95; }
+      35% { transform: translate(60px,-50px) scale(1.05); opacity: 0.85; }
+      60% { transform: translate(-30px,-100px) scale(0.95); opacity: 1; }
+      85% { transform: translate(40px,-160px) scale(1); opacity: 0.75; }
+      100% { transform: translate(0,-220px) scale(0.9); opacity: 0; }
+    }
+    @keyframes firefly-drift-2 {
+      0% { transform: translate(0,0) scale(1); opacity: 0; }
+      18% { opacity: 0.9; }
+      40% { transform: translate(-55px,-60px) scale(1.1); opacity: 1; }
+      65% { transform: translate(35px,-130px) scale(0.95); opacity: 0.75; }
+      90% { transform: translate(-25px,-200px) scale(1.05); opacity: 0.85; }
+      100% { transform: translate(10px,-260px) scale(0.9); opacity: 0; }
+    }
+    @keyframes firefly-drift-3 {
+      0% { transform: translate(0,0) scale(0.85); opacity: 0; }
+      20% { opacity: 1; }
+      45% { transform: translate(75px,-70px) scale(1); opacity: 0.85; }
+      70% { transform: translate(-45px,-140px) scale(1.1); opacity: 1; }
+      95% { transform: translate(50px,-230px) scale(0.95); opacity: 0.8; }
+      100% { transform: translate(0,-280px) scale(0.9); opacity: 0; }
+    }
+    @keyframes firefly-glow {
+      0%,100% { filter: brightness(1); }
+      50% { filter: brightness(1.7); }
+    }
+    .firefly.f1  { left:8%;  top:78%; animation: firefly-drift-1 11s ease-in-out infinite, firefly-glow 2.3s ease-in-out infinite; animation-delay: 0s, 0s; }
+    .firefly.f2  { left:18%; top:88%; animation: firefly-drift-2 13s ease-in-out infinite, firefly-glow 1.9s ease-in-out infinite; animation-delay: -2s, -0.5s; }
+    .firefly.f3  { left:32%; top:72%; animation: firefly-drift-3 14s ease-in-out infinite, firefly-glow 2.7s ease-in-out infinite; animation-delay: -5s, -1s; }
+    .firefly.f4  { left:46%; top:92%; animation: firefly-drift-1 12s ease-in-out infinite, firefly-glow 2.1s ease-in-out infinite; animation-delay: -7s, -0.3s; }
+    .firefly.f5  { left:58%; top:80%; animation: firefly-drift-2 15s ease-in-out infinite, firefly-glow 2.5s ease-in-out infinite; animation-delay: -3s, -1.2s; }
+    .firefly.f6  { left:70%; top:85%; animation: firefly-drift-3 10s ease-in-out infinite, firefly-glow 1.8s ease-in-out infinite; animation-delay: -1s, -0.7s; }
+    .firefly.f7  { left:82%; top:74%; animation: firefly-drift-1 13.5s ease-in-out infinite, firefly-glow 2.4s ease-in-out infinite; animation-delay: -6s, -0.4s; }
+    .firefly.f8  { left:90%; top:88%; animation: firefly-drift-2 11.5s ease-in-out infinite, firefly-glow 2.0s ease-in-out infinite; animation-delay: -4s, -1.5s; }
+    .firefly.f9  { left:14%; top:55%; animation: firefly-drift-3 16s ease-in-out infinite, firefly-glow 2.8s ease-in-out infinite; animation-delay: -8s, -0.9s; }
+    .firefly.f10 { left:38%; top:50%; animation: firefly-drift-1 14s ease-in-out infinite, firefly-glow 2.2s ease-in-out infinite; animation-delay: -9s, -1.1s; }
+    .firefly.f11 { left:62%; top:58%; animation: firefly-drift-2 12.5s ease-in-out infinite, firefly-glow 1.9s ease-in-out infinite; animation-delay: -2.5s, -0.6s; }
+    .firefly.f12 { left:86%; top:52%; animation: firefly-drift-3 13s ease-in-out infinite, firefly-glow 2.6s ease-in-out infinite; animation-delay: -10s, -0.8s; }
+    .firefly.f13 { left:25%; top:42%; animation: firefly-drift-1 15s ease-in-out infinite, firefly-glow 2.3s ease-in-out infinite; animation-delay: -4.5s, -1.3s; }
+    .firefly.f14 { left:75%; top:38%; animation: firefly-drift-2 14.5s ease-in-out infinite, firefly-glow 2.1s ease-in-out infinite; animation-delay: -6.5s, -0.2s; }
+    @media (prefers-reduced-motion: reduce) { .firefly { animation: none !important; opacity: 0.7; } }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245,200,66,0.12);
+      border: 1px solid rgba(245,200,66,0.3);
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+      letter-spacing: 0.3px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero h1 {
+      font-size: clamp(42px, 9vw, 76px);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      max-width: 700px;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero h1 .gold { color: var(--gold); }
+
+    /* Banana bunch icon — inline SVG, gold to match brand */
+    .banana {
+      display: inline-block;
+      width: 1.2em;
+      height: 1.2em;
+      vertical-align: -0.25em;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'><path d='M22 8 L 24 18 Q 14 30 18 48 Q 22 56 30 54 Q 26 38 30 22 Z' fill='%23f5c842'/><path d='M28 8 L 30 18 Q 24 32 28 50 Q 34 56 40 52 Q 34 36 38 22 Z' fill='%23e8952a'/><path d='M34 8 L 36 18 Q 32 32 38 50 Q 46 54 50 48 Q 42 34 46 22 Z' fill='%23f5c842'/><path d='M20 6 L 36 6' stroke='%23231405' stroke-width='3' stroke-linecap='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+    }
+
+    .hero > p {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-cta-group {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy);
+      font-weight: 800;
+      font-size: 17px;
+      padding: 16px 40px;
+      border-radius: 100px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 32px rgba(245,200,66,0.3);
+      transition: transform 0.15s, box-shadow 0.15s;
+      letter-spacing: -0.3px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(245,200,66,0.45);
+    }
+
+    .hero-sub {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .hero-flexin {
+      position: relative;
+      margin-top: 64px;
+      width: 180px;
+      height: 180px;
+      z-index: 1;
+    }
+
+    .hero-flexin img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(245,200,66,0.4);
+      box-shadow: 0 0 60px rgba(245,200,66,0.2), 0 0 120px rgba(245,200,66,0.08);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      background: var(--navy2);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 28px 24px;
+      display: flex;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 0 40px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-num {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: -1px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── BENEFITS ── */
+    .section {
+      padding: 80px 24px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 480px;
+      margin: 0 auto 56px;
+      line-height: 1.6;
+    }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .benefit-card {
+      background: var(--navy2);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .benefit-card:hover {
+      border-color: rgba(245,200,66,0.25);
+      transform: translateY(-3px);
+    }
+
+    .benefit-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+
+    .benefit-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .benefit-card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-section {
+      background: var(--navy2);
+      padding: 80px 24px;
+    }
+
+    .how-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 32px;
+      margin-top: 56px;
+    }
+
+    .step {
+      text-align: center;
+    }
+
+    .step-num {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy);
+      font-weight: 900;
+      font-size: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .step h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .step p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      padding: 80px 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(245,200,66,0.07) 0%, transparent 70%);
+    }
+
+    .cta-banner h2 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .cta-banner p {
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    .cta-banner .btn-primary {
+      position: relative;
+      font-size: 18px;
+      padding: 18px 48px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--navy2);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    footer .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    footer .footer-logo img {
+      height: 32px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    footer p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    footer .legal-links {
+      margin-top: 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+    }
+
+    footer .legal-links a {
+      color: rgba(255,255,255,0.45);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    footer .legal-links a:hover {
+      color: var(--gold);
+    }
+
+    footer .legal-links .sep {
+      margin: 0 6px;
+      color: rgba(255,255,255,0.25);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .stat-item { padding: 0 20px; }
+      .stat-num { font-size: 22px; }
+      nav { padding: 14px 16px; }
+      .hero-flexin { width: 140px; height: 140px; }
+    }
+
+    /* ── SIGNUP OVERLAY ── */
+    #signup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(0,0,0,0);
+      transition: background 0.3s;
+    }
+
+    #signup-overlay.active {
+      display: flex;
+      background: rgba(0,0,0,0.7);
+    }
+
+    .signup-sheet {
+      width: 100%;
+      max-width: 480px;
+      background: var(--navy2);
+      border-radius: 28px 28px 0 0;
+      border: 1px solid rgba(245,200,66,0.2);
+      border-bottom: none;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 0 0 40px;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+      position: relative;
+    }
+
+    #signup-overlay.active .signup-sheet {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      display: flex;
+      justify-content: center;
+      padding: 14px 0 8px;
+    }
+
+    .sheet-handle-bar {
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.2);
+    }
+
+    .sheet-close {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.4);
+      padding: 4px;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .sheet-body {
+      padding: 4px 24px 0;
+    }
+
+    .sheet-flexin {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(245,200,66,0.4);
+      display: block;
+      margin: 0 auto 16px;
+    }
+
+    .sheet-title {
+      font-size: 24px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .sheet-sub {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* step indicators */
+    .step-dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .step-dot.active {
+      background: var(--gold);
+      transform: scale(1.25);
+    }
+
+    .step-dot.done {
+      background: var(--green);
+    }
+
+    /* inputs */
+    .signup-input {
+      width: 100%;
+      padding: 15px 16px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      color: white;
+      font-size: 16px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .signup-input:focus {
+      border-color: rgba(245,200,66,0.5);
+    }
+
+    .signup-input::placeholder {
+      color: rgba(255,255,255,0.3);
+    }
+
+    .signup-btn {
+      width: 100%;
+      padding: 17px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy);
+      font-size: 17px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      margin-top: 4px;
+      box-shadow: 0 6px 24px rgba(245,200,66,0.3);
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .signup-btn:hover { transform: translateY(-1px); }
+    .signup-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .signup-back {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 14px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .signup-error {
+      color: #f87171;
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 10px;
+      min-height: 18px;
+    }
+
+    /* ── Stripe embed ── */
+    #stripe-card-element {
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+
+    #stripe-card-element.focused {
+      border-color: rgba(245,200,66,0.5);
+    }
+
+    .price-summary {
+      background: rgba(245,200,66,0.08);
+      border: 1px solid rgba(245,200,66,0.2);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+    }
+
+    .price-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .price-row .label { color: var(--muted); }
+    .price-row .value { font-weight: 700; color: var(--gold); }
+    .price-row .value.today { color: #4ade80; }
+
+    /* ── Download screen ── */
+    .download-screen {
+      text-align: center;
+    }
+
+    .download-success-icon {
+      font-size: 52px;
+      margin-bottom: 12px;
+    }
+
+    .store-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 24px;
+      margin-bottom: 20px;
+    }
+
+    .store-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 24px;
+      border-radius: 16px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .store-btn:hover {
+      border-color: rgba(245,200,66,0.4);
+      background: rgba(245,200,66,0.08);
+    }
+
+    .store-btn-icon {
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    .store-btn-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+    }
+
+    .store-btn-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .store-btn-name {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .login-link {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .login-link a {
+      color: var(--gold);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">
+      <img src="/app/flexin_circle.jpeg" alt="Flexin" class="nav-logo-circle" />
+    </div>
+    <button class="nav-cta" onclick="openSignup()">Get the App →</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="fireflies" aria-hidden="true">
+      <span class="firefly f1"></span>
+      <span class="firefly f2"></span>
+      <span class="firefly f3"></span>
+      <span class="firefly f4"></span>
+      <span class="firefly f5"></span>
+      <span class="firefly f6"></span>
+      <span class="firefly f7"></span>
+      <span class="firefly f8"></span>
+      <span class="firefly f9"></span>
+      <span class="firefly f10"></span>
+      <span class="firefly f11"></span>
+      <span class="firefly f12"></span>
+      <span class="firefly f13"></span>
+      <span class="firefly f14"></span>
+    </div>
+    <div class="hero-badge">1,000 Levels of Inner Peace</div>
+    <h1>Level Up Your <span class="gold">Mind.</span></h1>
+    <p>The only meditation app that makes mindfulness addictive. Earn bananas, unlock levels, and transform your life — one breath at a time.</p>
+    <div class="hero-cta-group">
+      <button class="btn-primary" onclick="openSignup()">Start Your Journey</button>
+    </div>
+    <div class="hero-flexin">
+      <img src="/app/flexin_circle.jpeg" alt="Flexin mascot" />
+    </div>
+  </section>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">1,000</div>
+      <div class="stat-label">Levels</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Meditation Tracks</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">∞</div>
+      <div class="stat-label">Bananas</div>
+    </div>
+  </div>
+
+  <!-- BENEFITS -->
+  <section class="section">
+    <div class="section-label">Why Flexin</div>
+    <h2 class="section-title">Meditation, but make it fun.</h2>
+    <p class="section-sub">Most people quit meditation because it's boring. Flexin fixes that.</p>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="benefit-icon">🎮</div>
+        <h3>Gamified Progress</h3>
+        <p>Earn bananas, level up, and unlock rewards with every session. Progress you can actually see and feel.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🧘</div>
+        <h3>Guided Breath Work</h3>
+        <p>Structured breath challenges for every level. Master box breathing, 4-7-8, and more as you advance.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🎵</div>
+        <h3>Premium Soundscapes</h3>
+        <p>5 handpicked tracks — nature sounds, healing tones, om chants, and more to deepen every session.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🔥</div>
+        <h3>Streak Tracking</h3>
+        <p>Build unbreakable consistency. Your daily streak keeps you accountable and coming back every day.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📈</div>
+        <h3>Track Your Journey</h3>
+        <p>Total sessions, minutes meditated, streak days — watch yourself grow into a true Flexin.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📱</div>
+        <h3>Native App Experience</h3>
+        <p>Download from the App Store or Google Play. Pure native feel, available on every device.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-section">
+    <div class="how-inner">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title" style="text-align:center;">Simple. Powerful. Addictive.</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Sign Up Here</h3>
+          <p>Create your account and start your free 3-day trial right on this page in under 60 seconds.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Download the App</h3>
+          <p>Grab Flexin from the App Store or Google Play. Your account is already waiting for you.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Log In &amp; Meditate</h3>
+          <p>Open the app, enter your email, and you're in. Level 1 awaits — start earning bananas.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>Unlock All 1,000 Levels</h3>
+          <p>Every session earns you bananas and XP. 1,000 levels of inner peace are waiting for you.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA BANNER -->
+  <section class="cta-banner">
+    <h2>Your mind is waiting.<br/>Are you?</h2>
+    <p>Start free for 3 days. Then just $4.99/month.</p>
+    <button class="btn-primary" onclick="openSignup()">Get Started Free</button>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">
+      <img src="/app/flexin_logo_transparent.png" alt="Flexin" />
+    </div>
+    <p>© 2026 Flexin. Level up your mind.</p>
+    <div class="legal-links">
+      <a href="/privacy">Privacy</a><span class="sep">·</span><a href="/terms">Terms</a><span class="sep">·</span><a href="/support">Support</a>
+    </div>
+  </footer>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SIGNUP OVERLAY (3-step: Name → Payment → Download) -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="signup-overlay" onclick="handleOverlayClick(event)">
+    <div class="signup-sheet" id="signup-sheet">
+      <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+      <button class="sheet-close" onclick="closeSignup()">✕</button>
+
+      <div class="sheet-body">
+        <img src="/app/flexin_circle.jpeg" alt="Flexin" class="sheet-flexin" />
+
+        <!-- Step dots -->
+        <div class="step-dots">
+          <div class="step-dot active" id="dot-1"></div>
+          <div class="step-dot" id="dot-2"></div>
+          <div class="step-dot" id="dot-3"></div>
+        </div>
+
+        <!-- ── STEP 1: Name + Email ── -->
+        <div id="step-1">
+          <div class="sheet-title">Welcome to <span class="gold">Monk<strong>y</strong></span></div>
+          <div class="sheet-sub">Your meditation practice</div>
+          <input
+            class="signup-input"
+            type="text"
+            id="input-name"
+            placeholder="Your name"
+            autocomplete="name"
+            onkeydown="if(event.key==='Enter') goToStep2()"
+          />
+          <input
+            class="signup-input"
+            type="email"
+            id="input-email"
+            placeholder="Email address"
+            autocomplete="email"
+            onkeydown="if(event.key==='Enter') goToStep2()"
+          />
+          <div class="signup-error" id="step1-error"></div>
+          <button class="signup-btn" onclick="goToStep2()">Continue →</button>
+        </div>
+
+        <!-- ── STEP 2: Stripe Payment ── -->
+        <div id="step-2" style="display:none;">
+          <div class="sheet-title">Start Free Trial</div>
+          <div class="sheet-sub">3 days free, then $4.99/month.<br/>Cancel anytime before trial ends.</div>
+
+          <div class="price-summary">
+            <div class="price-row">
+              <span class="label">3-day free trial</span>
+              <span class="value today">$0.00 today</span>
+            </div>
+            <div style="height:8px;"></div>
+            <div class="price-row">
+              <span class="label">After trial</span>
+              <span class="value">$4.99/month</span>
+            </div>
+          </div>
+
+          <div id="stripe-card-element"></div>
+          <div class="signup-error" id="step2-error"></div>
+          <button class="signup-btn" id="pay-btn" onclick="submitPayment()">Start Free Trial</button>
+          <button class="signup-back" onclick="goToStep1()">← Back</button>
+          <p style="font-size:11px;color:rgba(255,255,255,0.25);text-align:center;margin-top:14px;">
+            Secured by Stripe · Cancel anytime
+          </p>
+        </div>
+
+        <!-- ── STEP 3: Download ── -->
+        <div id="step-3" style="display:none;">
+          <div class="download-screen">
+            <div class="download-success-icon">🎉</div>
+            <div class="sheet-title">You're In!</div>
+            <div class="sheet-sub">Your Flexin account is ready.<br/>Download the app and log in with your email.</div>
+            <div class="store-buttons">
+              <a href="https://apps.apple.com/app/flexin" class="store-btn" target="_blank" rel="noopener">
+                <span class="store-btn-icon">🍎</span>
+                <span class="store-btn-text">
+                  <span class="store-btn-label">Download on the</span>
+                  <span class="store-btn-name">App Store</span>
+                </span>
+              </a>
+              <a href="https://play.google.com/store/apps/details?id=com.flexinapp" class="store-btn" target="_blank" rel="noopener">
+                <span class="store-btn-icon">▶</span>
+                <span class="store-btn-text">
+                  <span class="store-btn-label">Get it on</span>
+                  <span class="store-btn-name">Google Play</span>
+                </span>
+              </a>
+            </div>
+            <p class="login-link">Already downloaded? <a href="/app">Log in here →</a></p>
+          </div>
+        </div>
+
+      </div><!-- /sheet-body -->
+    </div><!-- /signup-sheet -->
+  </div><!-- /signup-overlay -->
+
+
+  <script>
+    // ── Stripe setup ────────────────────────────────────────────
+    const STRIPE_PK = "pk_live_51ThZa31zeUc213dYMlMpzP0u7dbu73zjJcr4hXQhBNZb0jW0VDUQNpHidSQmnrSZg1SxWAEYmW1ZLTPnEvCNqWSj00vemq95c5";
+    let stripe = null;
+    let cardElement = null;
+    let stripeReady = false;
+
+    function initStripe() {
+      if (stripeReady) return;
+      stripe = Stripe(STRIPE_PK);
+      const elements = stripe.elements({
+        fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" }]
+      });
+      cardElement = elements.create("card", {
+        style: {
+          base: {
+            fontSize: "15px",
+            color: "rgba(255,255,255,0.9)",
+            fontFamily: "'Inter', sans-serif",
+            iconColor: "rgba(255,255,255,0.4)",
+            "::placeholder": { color: "rgba(255,255,255,0.3)" },
+          },
+          invalid: { color: "#f87171", iconColor: "#f87171" },
+        },
+        hidePostalCode: true,
+      });
+      cardElement.mount("#stripe-card-element");
+      cardElement.on("focus", () => document.getElementById("stripe-card-element").classList.add("focused"));
+      cardElement.on("blur", () => document.getElementById("stripe-card-element").classList.remove("focused"));
+      stripeReady = true;
+    }
+
+    // ── Overlay open/close ──────────────────────────────────────
+    let currentStep = 1;
+
+    function openSignup() {
+      document.getElementById("signup-overlay").classList.add("active");
+      document.body.style.overflow = "hidden";
+      showStep(1);
+      setTimeout(initStripe, 300); // preload Stripe while user fills name
+    }
+
+    // Auto-open signup from deep link (?signup=1) — used by iOS app "Create Account" button
+    window.addEventListener("DOMContentLoaded", function() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get("signup") === "1") {
+          setTimeout(openSignup, 200);
+        }
+      } catch (e) {}
+    });
+
+    function closeSignup() {
+      document.getElementById("signup-overlay").classList.remove("active");
+      document.body.style.overflow = "";
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById("signup-overlay")) closeSignup();
+    }
+
+    // ── Step navigation ─────────────────────────────────────────
+    function showStep(n) {
+      currentStep = n;
+      [1, 2, 3].forEach(i => {
+        document.getElementById("step-" + i).style.display = i === n ? "block" : "none";
+        const dot = document.getElementById("dot-" + i);
+        dot.className = "step-dot" + (i < n ? " done" : i === n ? " active" : "");
+      });
+    }
+
+    function goToStep1() {
+      showStep(1);
+    }
+
+    function goToStep2() {
+      const name = document.getElementById("input-name").value.trim();
+      const email = document.getElementById("input-email").value.trim();
+      const errEl = document.getElementById("step1-error");
+      if (!name) { errEl.textContent = "Please enter your name."; return; }
+      if (!email || !email.includes("@")) { errEl.textContent = "Please enter a valid email."; return; }
+      errEl.textContent = "";
+      showStep(2);
+      initStripe(); // ensure Stripe is ready
+    }
+
+    // ── Payment submission ──────────────────────────────────────
+    async function submitPayment() {
+      const email = document.getElementById("input-email").value.trim().toLowerCase();
+      const name = document.getElementById("input-name").value.trim();
+      const errEl = document.getElementById("step2-error");
+      const btn = document.getElementById("pay-btn");
+
+      btn.disabled = true;
+      btn.textContent = "Processing...";
+      errEl.textContent = "";
+
+      try {
+        // 1. Create SetupIntent on server
+        const siRes = await fetch("/api/stripe-setup-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const siData = await siRes.json();
+
+        if (siData.demo) {
+          // Demo / no Stripe key — just unlock
+          await fetch("/api/unlock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, name }),
+          });
+          showStep(3);
+          return;
+        }
+
+        if (siData.error) { errEl.textContent = siData.error; return; }
+
+        // 2. Confirm card setup
+        const { error, setupIntent } = await stripe.confirmCardSetup(siData.clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: { name, email },
+          },
+        });
+
+        if (error) { errEl.textContent = error.message || "Card declined. Try again."; return; }
+
+        // 3. Create subscription
+        const subRes = await fetch("/api/stripe-confirm-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: siData.customerId,
+            paymentMethodId: setupIntent.payment_method,
+          }),
+        });
+        const subData = await subRes.json();
+
+        if (subData.success || subData.demo) {
+          // 4. Unlock the account
+          await fetch("/api/unlock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, name }),
+          });
+          showStep(3);
+        } else {
+          errEl.textContent = subData.error || "Something went wrong. Please try again.";
+        }
+      } catch (e) {
+        errEl.textContent = "Connection error. Please try again.";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Start Free Trial";
+      }
+    }
+  </script>
+
+</body>
+</html>

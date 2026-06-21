@@ -1,0 +1,27 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+dist/
+client/public/audio/*.mp3
+builtin-tracks/
+*.mp3
+
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# iOS / Capacitor
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/

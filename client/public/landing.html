@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flexin — Level Up Your Mind</title>
+  <meta name="description" content="The gamified meditation app that makes mindfulness addictive. Earn bananas, unlock levels, and transform your mind — one breath at a time." />
+  <meta property="og:title" content="Flexin — Level Up Your Mind" />
+  <meta property="og:description" content="The gamified meditation app. Earn bananas, unlock levels, transform your mind." />
+  <meta property="og:image" content="assets/flexin_circle.jpeg" />
+  <meta name="theme-color" content="#0d0f1a" />
+  <link rel="icon" href="assets/flexin_logo_transparent.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0d0f1a;
+      --navy2: #111320;
+      --navy3: #161929;
+      --gold: #f5c842;
+      --gold2: #e8952a;
+      --green: #2d8a4e;
+      --white: #ffffff;
+      --muted: rgba(255,255,255,0.55);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--navy);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(13,15,26,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(245,200,66,0.1);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-logo img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .nav-logo span {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-cta {
+      background: var(--gold);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 20px;
+      border-radius: 100px;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245,200,66,0.35);
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(245,200,66,0.08) 0%, transparent 70%),
+                  radial-gradient(ellipse 60% 40% at 20% 80%, rgba(45,138,78,0.06) 0%, transparent 60%);
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245,200,66,0.12);
+      border: 1px solid rgba(245,200,66,0.3);
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+      letter-spacing: 0.3px;
+    }
+
+    .hero h1 {
+      font-size: clamp(42px, 9vw, 76px);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      max-width: 700px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 .gold { color: var(--gold); }
+
+    .hero p {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy);
+      font-weight: 800;
+      font-size: 17px;
+      padding: 16px 40px;
+      border-radius: 100px;
+      text-decoration: none;
+      box-shadow: 0 8px 32px rgba(245,200,66,0.3);
+      transition: transform 0.15s, box-shadow 0.15s;
+      letter-spacing: -0.3px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(245,200,66,0.45);
+    }
+
+    .hero-sub {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .hero-flexin {
+      position: relative;
+      margin-top: 64px;
+      width: 180px;
+      height: 180px;
+    }
+
+    .hero-flexin img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(245,200,66,0.4);
+      box-shadow: 0 0 60px rgba(245,200,66,0.2), 0 0 120px rgba(245,200,66,0.08);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      background: var(--navy2);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 28px 24px;
+      display: flex;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 0 40px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-num {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: -1px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── BENEFITS ── */
+    .section {
+      padding: 80px 24px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 480px;
+      margin: 0 auto 56px;
+      line-height: 1.6;
+    }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .benefit-card {
+      background: var(--navy2);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .benefit-card:hover {
+      border-color: rgba(245,200,66,0.25);
+      transform: translateY(-3px);
+    }
+
+    .benefit-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+
+    .benefit-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .benefit-card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-section {
+      background: var(--navy2);
+      padding: 80px 24px;
+    }
+
+    .how-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 32px;
+      margin-top: 56px;
+    }
+
+    .step {
+      text-align: center;
+    }
+
+    .step-num {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy);
+      font-weight: 900;
+      font-size: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .step h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .step p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── INSTALL STEPS ── */
+    .install-section {
+      padding: 80px 24px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .install-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 56px;
+    }
+
+    .install-card {
+      background: var(--navy3);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+    }
+
+    .install-card .step-num {
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+      margin-bottom: 14px;
+    }
+
+    .install-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .install-card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .phone-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    /* ── TIERS ── */
+    .tiers-section {
+      background: var(--navy2);
+      padding: 80px 24px;
+    }
+
+    .tiers-inner {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .tiers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-top: 56px;
+    }
+
+    .tier-card {
+      background: var(--navy);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 28px;
+      position: relative;
+      transition: transform 0.2s;
+    }
+
+    .tier-card:hover { transform: translateY(-3px); }
+
+    .tier-card.featured {
+      border-color: var(--gold);
+      box-shadow: 0 0 40px rgba(245,200,66,0.12);
+    }
+
+    .featured-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gold);
+      color: var(--navy);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 14px;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .tier-emoji { font-size: 28px; margin-bottom: 12px; }
+
+    .tier-name {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .tier-price {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .tier-price span {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .tier-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tier-features li {
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tier-features li::before {
+      content: "✓";
+      color: var(--gold);
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      padding: 80px 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(245,200,66,0.07) 0%, transparent 70%);
+    }
+
+    .cta-banner h2 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .cta-banner p {
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    .cta-banner .btn-primary {
+      position: relative;
+      font-size: 18px;
+      padding: 18px 48px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--navy2);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    footer .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    footer .footer-logo img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    footer .footer-logo span {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--gold);
+    }
+
+    footer p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .stat-item { padding: 0 20px; }
+      .stat-num { font-size: 22px; }
+      nav { padding: 14px 16px; }
+      .hero-flexin { width: 140px; height: 140px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">
+      <img src="assets/flexin_circle.jpeg" alt="Flexin" />
+      <span>Flexin</span>
+    </div>
+    <a href="https://flexin.pplx.app/#/?start=fresh" class="nav-cta" target="_blank">Get the App →</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-badge">🍌 1,000 Levels of Inner Peace</div>
+    <h1>Level Up Your <span class="gold">Mind.</span></h1>
+    <p>The only meditation app that makes mindfulness addictive. Earn bananas, unlock levels, and transform your life — one breath at a time.</p>
+    <div class="hero-cta-group">
+      <a href="https://flexin.pplx.app/#/?start=fresh" class="btn-primary" target="_blank">Start Meditating Free 🍌</a>
+      <span class="hero-sub">No app store needed · Add to your home screen instantly</span>
+    </div>
+    <div class="hero-flexin">
+      <img src="assets/flexin_circle.jpeg" alt="Flexin mascot" />
+    </div>
+  </section>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">1,000</div>
+      <div class="stat-label">Levels</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Meditation Tracks</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">∞</div>
+      <div class="stat-label">Bananas 🍌</div>
+    </div>
+  </div>
+
+  <!-- BENEFITS -->
+  <section class="section">
+    <div class="section-label">Why Flexin</div>
+    <h2 class="section-title">Meditation, but make it fun.</h2>
+    <p class="section-sub">Most people quit meditation because it's boring. Flexin fixes that.</p>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="benefit-icon">🎮</div>
+        <h3>Gamified Progress</h3>
+        <p>Earn bananas, level up, and unlock rewards with every session. Progress you can actually see and feel.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🧘</div>
+        <h3>Guided Breath Work</h3>
+        <p>Structured breath challenges for every level. Master box breathing, 4-7-8, and more as you advance.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🎵</div>
+        <h3>Premium Soundscapes</h3>
+        <p>5 handpicked tracks — nature sounds, healing tones, om chants, and more to deepen every session.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🔥</div>
+        <h3>Streak Tracking</h3>
+        <p>Build unbreakable consistency. Your daily streak keeps you accountable and coming back every day.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📈</div>
+        <h3>Track Your Journey</h3>
+        <p>Total sessions, minutes meditated, streak days — watch yourself grow into a true Flexin.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">⚡</div>
+        <h3>Works on Any Phone</h3>
+        <p>No app store download needed. Open the link, tap "Add to Home Screen" — it's on your phone in seconds.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-section">
+    <div class="how-inner">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title" style="text-align:center;">Simple. Powerful. Addictive.</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Sign Up Free</h3>
+          <p>Create your profile in under 60 seconds. Pick your experience level and choose your path.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Pick Your Music</h3>
+          <p>Choose from 5 premium soundscapes — nature, healing, bliss, om chants, and more.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Meditate & Earn</h3>
+          <p>Complete sessions, earn bananas, level up. Every minute you sit earns you progress.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>Unlock Levels</h3>
+          <p>1,000 levels await. Each one deeper, longer, and more rewarding than the last.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO INSTALL -->
+  <section class="install-section">
+    <div class="section-label">Install in Seconds</div>
+    <h2 class="section-title">Add Flexin to Your Home Screen</h2>
+    <p class="section-sub">No app store. No download. Just tap and go — works on iPhone and Android.</p>
+    <div class="install-cards">
+      <div class="install-card">
+        <div class="phone-icon">📱</div>
+        <div class="step-num">1</div>
+        <h3>Open the Link</h3>
+        <p>Tap the link in our TikTok bio (or type flexinapp.com) in Safari or Chrome.</p>
+      </div>
+      <div class="install-card">
+        <div class="phone-icon">↑</div>
+        <div class="step-num">2</div>
+        <h3>Tap Share</h3>
+        <p>On iPhone tap the Share icon at the bottom. On Android tap the 3-dot menu.</p>
+      </div>
+      <div class="install-card">
+        <div class="phone-icon">➕</div>
+        <div class="step-num">3</div>
+        <h3>Add to Home Screen</h3>
+        <p>Tap "Add to Home Screen" — the Flexin icon appears on your phone instantly.</p>
+      </div>
+      <div class="install-card">
+        <div class="phone-icon">🍌</div>
+        <div class="step-num">4</div>
+        <h3>Start Meditating</h3>
+        <p>Open Flexin from your home screen and begin your journey to 1,000 levels.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- CTA BANNER -->
+  <section class="cta-banner">
+    <h2>Your mind is waiting.<br/>Are you?</h2>
+    <p>Join Flexin and start your journey to 1,000 levels of inner peace.</p>
+    <a href="https://flexin.pplx.app/#/?start=fresh" class="btn-primary" target="_blank">Get Started Free 🍌</a>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">
+      <img src="assets/flexin_circle.jpeg" alt="Flexin" />
+      <span>Flexin</span>
+    </div>
+    <p>© 2026 Flexin. Level up your mind.</p>
+  </footer>
+
+</body>
+</html>

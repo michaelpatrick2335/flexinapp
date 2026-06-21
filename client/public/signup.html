@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Sign Up for Flexin</title>
+<meta name="description" content="Create your Flexin account and join the meditation tribe." />
+<meta property="og:title" content="Sign Up for Flexin" />
+<meta property="og:description" content="Create your account, join the tribe, level up your mind." />
+<meta property="og:image" content="https://www.flexinapp.com/flexin_logo.png" />
+<link rel="icon" href="/flexin_icon_192.png" />
+<style>
+  :root {
+    --gold: #f5c842;
+    --saffron: #e8952a;
+    --midnight: #0d0f1a;
+    --ink: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--midnight);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stars {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,0.45), transparent),
+      radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(2px 2px at 85% 20%, rgba(245,200,66,0.4), transparent),
+      radial-gradient(1px 1px at 15% 70%, rgba(255,255,255,0.3), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 40px 24px 48px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 28px;
+  }
+  .brand img {
+    width: 48px; height: 48px; border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 0 0 2px rgba(245,200,66,0.35), 0 0 24px rgba(245,200,66,0.25);
+  }
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(245,200,66,0.22);
+    border-radius: 24px;
+    padding: 28px 22px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 60px rgba(245,200,66,0.06);
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 26px;
+    line-height: 1.2;
+    margin: 0 0 8px;
+    font-weight: 700;
+  }
+  .sub { color: rgba(255,255,255,0.7); font-size: 15px; line-height: 1.5; margin: 0; }
+  .tribe-banner {
+    margin-top: 18px; padding: 14px 16px;
+    background: rgba(245,200,66,0.08);
+    border-radius: 14px;
+    border: 1px solid rgba(245,200,66,0.22);
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+  }
+  .tribe-banner strong { color: var(--gold); }
+  form {
+    margin-top: 22px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="email"] {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(13,15,26,0.6);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 150ms ease;
+  }
+  input:focus { border-color: rgba(245,200,66,0.5); }
+  .price-line {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+  }
+  .price-line strong { color: var(--gold); }
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 16px; font-weight: 700;
+    text-decoration: none;
+    border: none; cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+    width: 100%;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold) 0%, var(--saffron) 100%);
+    color: #1a1408;
+    box-shadow: 0 8px 24px rgba(245,200,66,0.25);
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: wait; }
+  .footer {
+    margin-top: auto; padding-top: 32px;
+    text-align: center; font-size: 12px;
+    color: rgba(255,255,255,0.45);
+  }
+  .footer a { color: rgba(255,255,255,0.7); text-decoration: none; }
+  .error {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(255,90,90,0.08);
+    border: 1px solid rgba(255,90,90,0.3);
+    border-radius: 12px;
+    color: #ff8a80;
+    font-size: 14px;
+  }
+  .hidden { display: none; }
+  .small { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 12px; text-align: center; line-height: 1.5; }
+  .small a { color: rgba(255,255,255,0.7); text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="stars"></div>
+  <main class="wrap">
+    <div class="brand">
+      <img src="/flexin_circle.jpeg" alt="Flexin" />
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Create your account</div>
+      <h1>Join Flexin</h1>
+      <p class="sub">Meditate together. Build streaks. Level up side by side.</p>
+
+      <div id="tribe-banner" class="tribe-banner hidden">
+        You're being invited to <strong id="tribe-code-display">—</strong>. After payment, install Flexin and sign in — you'll land directly in your tribe.
+      </div>
+
+      <form id="signup-form">
+        <div>
+          <label for="name">Your name</label>
+          <input type="text" id="name" name="name" placeholder="Seeker" maxlength="60" autocomplete="given-name" required />
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary">
+          Continue to payment
+        </button>
+        <div class="price-line"><strong>$4.99/month</strong> · 3-day free trial · cancel anytime</div>
+      </form>
+
+      <div id="error-box" class="error hidden"></div>
+
+      <p class="small">
+        By creating an account you agree to our
+        <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.
+      </p>
+    </div>
+
+    <div class="footer">
+      © Flexin Labs
+    </div>
+  </main>
+
+<script>
+(function() {
+  // Extract joinCode from URL: /signup?join=CODE
+  var params = new URLSearchParams(window.location.search);
+  var joinCode = (params.get("join") || "").toUpperCase();
+  if (/^[A-Z0-9]{4,10}$/.test(joinCode)) {
+    document.getElementById("tribe-banner").classList.remove("hidden");
+    document.getElementById("tribe-code-display").textContent = "tribe code " + joinCode;
+    try { localStorage.setItem("flexin_pending_join_code", joinCode); } catch(e) {}
+  } else {
+    joinCode = "";
+  }
+
+  var form = document.getElementById("signup-form");
+  var btn = document.getElementById("submit-btn");
+  var errBox = document.getElementById("error-box");
+
+  function showError(msg) {
+    errBox.textContent = msg;
+    errBox.classList.remove("hidden");
+    btn.disabled = false;
+    btn.textContent = "Continue to payment";
+  }
+
+  form.addEventListener("submit", async function(e) {
+    e.preventDefault();
+    errBox.classList.add("hidden");
+    btn.disabled = true;
+    btn.textContent = "Creating account…";
+
+    var name = document.getElementById("name").value.trim();
+    var email = document.getElementById("email").value.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      showError("Please enter a valid email.");
+      return;
+    }
+
+    // 1. Create the account on the server (with joinCode if present)
+    try {
+      var signupRes = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, name: name, joinCode: joinCode || undefined }),
+      });
+      if (!signupRes.ok) {
+        var data = await signupRes.json().catch(function(){ return {}; });
+        if (signupRes.status === 409) {
+          showError("An account with that email already exists. Open Flexin and sign in.");
+          return;
+        }
+        showError(data.error || "Couldn't create your account. Please try again.");
+        return;
+      }
+    } catch (err) {
+      showError("Network error. Please check your connection and try again.");
+      return;
+    }
+
+    // 2. Kick off Stripe Checkout
+    btn.textContent = "Loading checkout…";
+    try {
+      var stripeRes = await fetch("/api/stripe/create-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-email": email },
+        body: JSON.stringify({ email: email, joinCode: joinCode || undefined }),
+      });
+      var stripeData = await stripeRes.json();
+      if (stripeData.demo) {
+        // Demo mode (no Stripe key) — pretend payment succeeded and redirect.
+        window.location.href = "/post-signup?email=" + encodeURIComponent(email) + (joinCode ? "&join=" + joinCode : "");
+        return;
+      }
+      if (stripeData.url) {
+        window.location.href = stripeData.url;
+        return;
+      }
+      showError("Couldn't start checkout. Please try again.");
+    } catch (err) {
+      showError("Couldn't reach the payment processor. Please try again.");
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d0f1a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Flexin — Gamified Meditation</title>
+    <meta name="description" content="Level up your mind. Meditate daily, earn bananas, unlock monk titles." />
+
+    <!-- Fonts: Chillax (display) + General Sans (body) from Fontshare -->
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=chillax@300,400,500,600,700&f[]=general-sans@300,400,500,600,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🐒</text></svg>" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/app/manifest.json" />
+    <link rel="apple-touch-icon" sizes="180x180" href="https://www.flexinapp.com/app/flexin_icon_512.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="https://www.flexinapp.com/app/flexin_icon_512.png" />
+    <meta name="apple-mobile-web-app-title" content="Flexin" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' });
+      }
+    </script>
+  </body>
+</html>

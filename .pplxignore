@@ -1,0 +1,12 @@
+node_modules/
+builtin-tracks/
+meditation-music/
+profile-pics/
+voice-cues/
+client/
+.git/
+dist/public/audio/
+dist/public/app/audio/
+*.jpeg
+*.jpg
+*.png

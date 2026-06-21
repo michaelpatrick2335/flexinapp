@@ -1,0 +1,207 @@
+workflows:
+  ios-flexin-workflow:
+    name: Flexin iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      # Code signing: persistent Distribution cert generated via Codemagic's
+      # `Generate certificate` button (which auto-registered a matching cert
+      # in Apple Developer Portal under team ZZCB23RNM5). The .p12 was
+      # downloaded, base64-encoded, and stored in the `ios_signing` env
+      # var group:
+      #   IOS_DISTRIBUTION_CERTIFICATE  (base64-encoded .p12, Secure)
+      #   IOS_CERTIFICATE_PASSWORD      (the cert .p12 password, Secure)
+      # Every build decodes this same .p12, so we never hit the 409
+      # "too many certificates" error again.
+      groups:
+        - ios_signing
+      vars:
+        APP_ID: com.flexinapp.fitness
+        VITE_NATIVE_BUILD: "1"
+        VITE_API_BASE_URL: "https://www.flexinapp.com"
+        # Set VITE_REVENUECAT_IOS_KEY in the Codemagic UI under Environment
+        # variables (do not commit the key here). Required for In-App Purchase.
+        # VITE_REVENUECAT_IOS_KEY: "appl_xxxxxxxxxxxxxxxxxxxxx"
+      node: 22.11.0
+      xcode: latest
+      # Capacitor 8 uses Swift Package Manager, not CocoaPods — no cocoapods env needed
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm ci || npm install
+      - name: Build web client (native mode)
+        script: |
+          VITE_NATIVE_BUILD=1 \
+          VITE_API_BASE_URL=https://www.flexinapp.com \
+          VITE_REVENUECAT_IOS_KEY="$VITE_REVENUECAT_IOS_KEY" \
+            npx tsx script/build.ts
+      - name: Add iOS platform (creates Xcode project if missing)
+        script: |
+          set -e
+          # The committed ios/ dir only contains icon assets (no Xcode project),
+          # so we always run `cap add ios` when App.xcodeproj is missing.
+          # First, stash any committed assets (icons) so they survive the regen.
+          if [ -d "ios/App/App/Assets.xcassets" ] && [ ! -d "ios/App/App.xcodeproj" ]; then
+            echo "Existing ios/ has assets but no Xcode project — stashing assets and regenerating."
+            cp -R ios/App/App/Assets.xcassets /tmp/Assets.xcassets
+            rm -rf ios
+          fi
+          if [ ! -f "ios/App/App.xcodeproj/project.pbxproj" ]; then
+            # Explicitly request SPM — Capacitor 8 still requires this flag to skip
+            # the CocoaPods scaffold. Without it, cap sync will try `pod install`.
+            npx cap add ios --packagemanager SPM
+          fi
+          # Restore icon assets into the freshly-generated Xcode project.
+          if [ -d "/tmp/Assets.xcassets" ]; then
+            cp -R /tmp/Assets.xcassets/. ios/App/App/Assets.xcassets/
+            rm -rf /tmp/Assets.xcassets
+          fi
+      - name: Sync Capacitor iOS
+        script: |
+          set -e
+          # `--deployment` is NOT used for SPM projects; cap sync auto-detects SPM
+          # when there is no Podfile present. Capacitor 8 generates SPM-based
+          # projects by default.
+          npx cap sync ios
+          # Capacitor 8 uses Swift Package Manager (SPM) instead of CocoaPods,
+          # so there is no Podfile and no App.xcworkspace. The build uses
+          # App.xcodeproj directly. Verify it exists:
+          ls -la ios/App/App.xcodeproj || (echo "App.xcodeproj not created!" && exit 1)
+          # If a Podfile somehow got generated (e.g. older Capacitor template),
+          # remove it so cap sync stops trying to run pod install on subsequent runs.
+          if [ -f "ios/App/Podfile" ]; then
+            echo "Removing stray Podfile to force SPM mode."
+            rm -f ios/App/Podfile ios/App/Podfile.lock
+            rm -rf ios/App/Pods ios/App/App.xcworkspace
+          fi
+      - name: Patch Info.plist with iOS privacy usage descriptions
+        script: |
+          set -e
+          # Required by Apple. App Review rejected Build 27 with Guideline 2.1(a)
+          # because the avatar uploader opens iOS' native action sheet (Photo Library /
+          # Take Photo / Choose File) and iOS HARD-CRASHES any app that accesses the
+          # camera or photo library without the matching Info.plist usage description.
+          # Crash log: TCC namespace, NSCameraUsageDescription required.
+          # We inject all three strings here because `cap add ios` regenerates the
+          # project on every build so we cannot commit Info.plist directly.
+          INFO_PLIST="ios/App/App/Info.plist"
+          if [ ! -f "$INFO_PLIST" ]; then
+            echo "ERROR: $INFO_PLIST not found"; exit 1
+          fi
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Flexin uses your camera so you can take a profile picture for your account.'" "$INFO_PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription 'Flexin uses your camera so you can take a profile picture for your account.'" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Flexin lets you pick an image from your photo library as your profile picture.'" "$INFO_PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription 'Flexin lets you pick an image from your photo library as your profile picture.'" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Flexin uses your microphone in Voice Studio so you can record your own voice for guided breath exercises.'" "$INFO_PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription 'Flexin uses your microphone in Voice Studio so you can record your own voice for guided breath exercises.'" "$INFO_PLIST"
+          echo "--- Patched Info.plist ---"
+          /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryUsageDescription" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$INFO_PLIST"
+      - name: Set up code signing (decode persistent cert, add to keychain, create profile)
+        script: |
+          set -e
+          keychain initialize
+
+          # Decode the base64-encoded .p12 from the IOS_DISTRIBUTION_CERTIFICATE
+          # env var. This .p12 contains both the Apple Distribution certificate
+          # (issuer: Apple WWDR G3) AND the private key, generated together by
+          # Codemagic's `Generate certificate` button.
+          echo "Decoding persistent Distribution .p12 from env var..."
+          echo "$IOS_DISTRIBUTION_CERTIFICATE" | base64 --decode > /tmp/distribution_cert.p12
+          ls -la /tmp/distribution_cert.p12
+
+          # Install the cert + private key into the build keychain.
+          keychain add-certificates \
+            --certificate /tmp/distribution_cert.p12 \
+            --certificate-password "$IOS_CERTIFICATE_PASSWORD"
+
+          # Sanity check: confirm the cert+key pair is paired and ready.
+          security find-identity -v -p codesigning
+
+          # The cert in Apple has type DISTRIBUTION (not IOS_DISTRIBUTION).
+          # Get its ID so we can attach it to a new profile.
+          echo "Looking up Apple cert ID..."
+          CERT_ID=$(app-store-connect certificates list --type DISTRIBUTION --json 2>/dev/null | jq -r '.[0].id // empty')
+          echo "Apple cert ID: $CERT_ID"
+
+          # Look up the bundle ID resource ID in Apple (needed for profiles create).
+          BUNDLE_ID_RESOURCE=$(app-store-connect bundle-ids list --bundle-id-identifier "$APP_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
+          echo "Apple bundle resource ID: $BUNDLE_ID_RESOURCE"
+
+          # First check if a profile already exists on disk from a previous build.
+          PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+          EXISTING_PROFILES=$(ls "$PROFILE_DIR"/IOS_APP_STORE_*.mobileprovision 2>/dev/null | wc -l)
+          echo "Existing profiles on disk: $EXISTING_PROFILES"
+
+          if [ "$EXISTING_PROFILES" -eq 0 ]; then
+            # No profile yet. List Apple profiles, look for an active IOS_APP_STORE
+            # profile bound to our bundle ID. If found, download it; else create.
+            echo "Looking for existing App Store profile in Apple for bundle id $BUNDLE_ID_RESOURCE..."
+            EXISTING_APPLE_PROFILE=$(app-store-connect profiles list --json 2>/dev/null | \
+              jq -r --arg bid "$BUNDLE_ID_RESOURCE" '[.[] | select(.attributes.profileType == "IOS_APP_STORE" and .attributes.profileState == "ACTIVE" and .relationships.bundleId.data.id == $bid)] | .[0].id // empty')
+            echo "Found existing Apple profile id: ${EXISTING_APPLE_PROFILE:-none}"
+
+            if [ -z "$EXISTING_APPLE_PROFILE" ]; then
+              echo "No existing profile in Apple. Creating a new one..."
+              app-store-connect profiles create \
+                --name "Flexin App Store $(date +%s)" \
+                --type IOS_APP_STORE \
+                --certificate-ids "$CERT_ID" \
+                --save \
+                "$BUNDLE_ID_RESOURCE"
+            else
+              echo "Downloading existing Apple profile $EXISTING_APPLE_PROFILE..."
+              app-store-connect profiles get "$EXISTING_APPLE_PROFILE" --save
+            fi
+          fi
+
+          # List what's on disk
+          echo "Provisioning profiles on disk:"
+          ls -la "$PROFILE_DIR" || true
+
+          # Apply profiles to the Xcode project.
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd ios/App
+          agvtool new-version -all ${BUILD_NUMBER:-1}
+      - name: Build iOS archive
+        script: |
+          # Capacitor 8 uses SPM not CocoaPods, so we point at the .xcodeproj
+          # directly (no .xcworkspace exists). Absolute path via \$CM_BUILD_DIR.
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/ios/App/App.xcodeproj" \
+            --scheme App
+    artifacts:
+      # xcode-project build-ipa writes to $CM_BUILD_DIR/build/ios/ipa/App.ipa
+      # NOT to ios/App/build/. The Publishing step uses these globs to find
+      # the IPA to upload to App Store Connect — a wrong path means
+      # "Skip publishing to App Store Connect: no IPAs or PKGs found".
+      - build/ios/ipa/*.ipa
+      - build/ios/ipa/*.zip
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Auto-upload to TestFlight so we can install on the iPhone
+        submit_to_testflight: true
+        # Don't submit to App Store review automatically — flip this true when ready
+        submit_to_app_store: false
+      email:
+        recipients:
+          - michaelpatrick2335@gmail.com
+        notify:
+          success: true
+          failure: true

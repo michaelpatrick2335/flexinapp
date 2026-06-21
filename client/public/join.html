@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Join a Flexin Tribe</title>
+<meta name="description" content="You've been invited to join a Flexin Tribe — meditate together, build streaks, level up." />
+<meta property="og:title" content="Join my Flexin Tribe" />
+<meta property="og:description" content="We're meditating together on Flexin — join my Tribe." />
+<meta property="og:image" content="https://www.flexinapp.com/flexin_logo.png" />
+<link rel="icon" href="/flexin_icon_192.png" />
+<style>
+  :root {
+    --gold: #f5c842;
+    --saffron: #e8952a;
+    --midnight: #0d0f1a;
+    --ink: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--midnight);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stars {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,0.45), transparent),
+      radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(2px 2px at 85% 20%, rgba(245,200,66,0.4), transparent),
+      radial-gradient(1px 1px at 15% 70%, rgba(255,255,255,0.3), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 40px 24px 48px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 32px;
+  }
+  .brand img {
+    width: 48px; height: 48px; border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 0 0 2px rgba(245,200,66,0.35), 0 0 24px rgba(245,200,66,0.25);
+  }
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(245,200,66,0.22);
+    border-radius: 24px;
+    padding: 28px 22px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 60px rgba(245,200,66,0.06);
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 26px;
+    line-height: 1.2;
+    margin: 0 0 8px;
+    font-weight: 700;
+  }
+  .sub { color: rgba(255,255,255,0.7); font-size: 15px; line-height: 1.5; margin: 0; }
+  .group {
+    margin-top: 22px; padding: 18px;
+    background: rgba(245,200,66,0.06);
+    border-radius: 16px;
+    border: 1px solid rgba(245,200,66,0.18);
+  }
+  .group-name { font-size: 20px; font-weight: 700; color: var(--gold); margin: 0 0 4px; }
+  .group-meta { font-size: 13px; color: rgba(255,255,255,0.6); margin: 0; }
+  .code {
+    display: inline-block; margin-top: 12px; padding: 6px 12px;
+    background: rgba(13,15,26,0.6); border: 1px solid rgba(245,200,66,0.3);
+    border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 2px; font-size: 14px; color: var(--gold);
+  }
+  .cta {
+    margin-top: 28px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 16px; font-weight: 700;
+    text-decoration: none;
+    border: none; cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold) 0%, var(--saffron) 100%);
+    color: #1a1408;
+    box-shadow: 0 8px 24px rgba(245,200,66,0.25);
+  }
+  .btn-secondary {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  .footer {
+    margin-top: auto; padding-top: 32px;
+    text-align: center; font-size: 12px;
+    color: rgba(255,255,255,0.45);
+  }
+  .footer a { color: rgba(255,255,255,0.7); text-decoration: none; }
+  .loading, .error {
+    text-align: center; padding: 24px;
+    color: rgba(255,255,255,0.7);
+  }
+  .error { color: #ff8a80; }
+  .hidden { display: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+  <div class="stars"></div>
+  <main class="wrap">
+    <div class="brand">
+      <img src="/flexin_circle.jpeg" alt="Flexin" />
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">You're invited</div>
+      <h1>Join a Flexin Tribe</h1>
+      <p class="sub">Meditate together. Build streaks. Level up side by side.</p>
+
+      <div id="loading" class="loading pulse">Loading invite…</div>
+      <div id="error" class="error hidden">This invite link looks invalid or expired.</div>
+
+      <div id="group" class="group hidden">
+        <p class="group-name" id="g-name">—</p>
+        <p class="group-meta" id="g-meta">—</p>
+        <div class="code" id="g-code">—</div>
+      </div>
+
+      <div class="cta">
+        <a id="signup-cta" class="btn btn-primary" href="#">Create account &amp; join tribe</a>
+        <a id="have-account" class="btn btn-secondary" href="https://apps.apple.com/app/id6780059108">I already have Flexin</a>
+      </div>
+
+      <p style="margin-top: 18px; font-size: 12px; color: rgba(255,255,255,0.55); text-align: center; line-height: 1.5;">
+        Create your account on the web, then download Flexin and sign in — you'll land directly in your tribe.
+      </p>
+    </div>
+
+    <div class="footer">
+      <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · © Flexin Labs
+    </div>
+  </main>
+
+<script>
+(function() {
+  // Extract code from /join/[code]
+  var parts = window.location.pathname.split("/").filter(Boolean);
+  var code = (parts[1] || "").toUpperCase();
+  if (!/^[A-Z0-9]{4,10}$/.test(code)) {
+    document.getElementById("loading").classList.add("hidden");
+    document.getElementById("error").classList.remove("hidden");
+    return;
+  }
+
+  // Stash for auto-join after signup
+  try { localStorage.setItem("flexin_pending_join_code", code); } catch (e) {}
+
+  // CRITICAL: copy the code to the iOS clipboard so the native app can read it
+  // on first launch (Apple strips URL params during App Store install, so the
+  // clipboard is our only durable handoff). We re-copy on every CTA tap too,
+  // because some iOS versions clear the clipboard if it's been idle.
+  function copyCodeToClipboard() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText("FLEXIN-TRIBE:" + code).catch(function(){});
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = "FLEXIN-TRIBE:" + code;
+        ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch(e){}
+        document.body.removeChild(ta);
+      }
+    } catch(e) {}
+  }
+  copyCodeToClipboard();
+
+  // Primary CTA: send the invitee to the web signup form. After Stripe
+  // checkout they'll be on /post-signup which tells them to install the app.
+  // "I already have Flexin" CTA goes straight to the App Store (they sign in
+  // with their existing account and the clipboard-stashed code auto-joins).
+  var signupHref = "/signup?join=" + encodeURIComponent(code);
+  var signupBtn = document.getElementById("signup-cta");
+  signupBtn.href = signupHref;
+  signupBtn.addEventListener("click", copyCodeToClipboard);
+  document.getElementById("have-account").addEventListener("click", copyCodeToClipboard);
+
+  // Fetch group metadata
+  fetch("/api/groups/lookup/" + encodeURIComponent(code))
+    .then(function(r) {
+      if (!r.ok) throw new Error("not found");
+      return r.json();
+    })
+    .then(function(data) {
+      document.getElementById("loading").classList.add("hidden");
+      var g = document.getElementById("group");
+      g.classList.remove("hidden");
+      document.getElementById("g-name").textContent = data.name || "A Flexin Tribe";
+      var meta = (data.memberCount || 0) + " member" + (data.memberCount === 1 ? "" : "s");
+      if (data.inviterName) meta = "Invited by " + data.inviterName + " · " + meta;
+      document.getElementById("g-meta").textContent = meta;
+      document.getElementById("g-code").textContent = code;
+    })
+    .catch(function() {
+      document.getElementById("loading").classList.add("hidden");
+      // Even on lookup failure, let them try to open — the in-app join will surface real errors.
+      var g = document.getElementById("group");
+      g.classList.remove("hidden");
+      document.getElementById("g-name").textContent = "A Flexin Tribe";
+      document.getElementById("g-meta").textContent = "Code: " + code;
+      document.getElementById("g-code").textContent = code;
+    });
+})();
+</script>
+</body>
+</html>

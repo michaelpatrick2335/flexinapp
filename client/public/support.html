@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — Flexin</title>
+  <meta name="description" content="Get help with Flexin Meditation App." />
+  <meta name="theme-color" content="#0d0f1a" />
+  <link rel="icon" href="/flexin_logo_transparent.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0d0f1a; --navy2: #111320; --navy3: #161929;
+      --gold: #f5c842; --gold2: #e8952a;
+      --white: #ffffff; --muted: rgba(255,255,255,0.65); --border: rgba(245,200,66,0.15);
+    }
+    body { background: var(--navy); color: var(--white); font-family: 'Inter', sans-serif; line-height: 1.7; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(13,15,26,0.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .topbar a.logo { color: var(--gold); text-decoration: none; font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+    .topbar a.back { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+    .topbar a.back:hover { color: var(--gold); }
+    main { max-width: 720px; margin: 0 auto; padding: 56px 24px 96px; }
+    h1 { font-size: clamp(36px, 6vw, 52px); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; text-align: center; }
+    .lede { color: var(--muted); font-size: 18px; text-align: center; margin-bottom: 48px; }
+    .contact-card {
+      background: linear-gradient(135deg, rgba(245,200,66,0.08), rgba(232,149,42,0.04));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .contact-card .label {
+      color: var(--muted); font-size: 14px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+    }
+    .contact-card .email {
+      font-size: clamp(22px, 4vw, 28px); font-weight: 700;
+      color: var(--gold); text-decoration: none; display: inline-block; margin-bottom: 16px;
+    }
+    .contact-card .email:hover { text-decoration: underline; }
+    .contact-card p { color: var(--muted); font-size: 15px; }
+    h2 {
+      font-size: 22px; font-weight: 700; color: var(--gold);
+      margin-top: 40px; margin-bottom: 16px; letter-spacing: -0.01em;
+    }
+    .faq {
+      background: var(--navy2); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px 24px; margin-bottom: 12px;
+    }
+    .faq summary {
+      cursor: pointer; color: var(--white); font-weight: 600;
+      font-size: 16px; list-style: none; outline: none;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after { content: "+"; color: var(--gold); font-size: 22px; font-weight: 400; transition: transform 0.2s; }
+    .faq[open] summary::after { transform: rotate(45deg); }
+    .faq p { color: var(--muted); font-size: 15px; margin-top: 14px; margin-bottom: 0; }
+    .faq a { color: var(--gold); text-decoration: none; }
+    .faq a:hover { text-decoration: underline; }
+    .footer {
+      margin-top: 80px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 14px; text-align: center;
+    }
+    .footer a { color: var(--gold); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="/" class="logo">Flexin</a>
+    <a href="/" class="back">← Back to home</a>
+  </div>
+
+  <main>
+    <h1>Need a hand?</h1>
+    <p class="lede">We're a small team and we read every message. Drop us a line and we'll get back within 24 hours.</p>
+
+    <div class="contact-card">
+      <div class="label">Email Support</div>
+      <a href="mailto:support@flexinapp.com" class="email">support@flexinapp.com</a>
+      <p>Typical response time: under 24 hours, weekdays.</p>
+    </div>
+
+    <h2>Quick answers</h2>
+
+    <details class="faq">
+      <summary>How do I cancel my subscription?</summary>
+      <p><strong>iPhone users:</strong> Open the Settings app on your iPhone → tap your name at the top → tap Subscriptions → tap Flexin → tap Cancel Subscription.</p>
+      <p><strong>Web users:</strong> Sign in at <a href="https://www.flexinapp.com">flexinapp.com</a>, go to Settings, and click Manage Subscription.</p>
+    </details>
+
+    <details class="faq">
+      <summary>How do I request a refund?</summary>
+      <p><strong>iOS purchases:</strong> Refunds for App Store purchases are handled by Apple. Visit <a href="https://reportaproblem.apple.com" target="_blank">reportaproblem.apple.com</a> and select your Flexin purchase to request a refund.</p>
+      <p><strong>Web purchases:</strong> Email <a href="mailto:support@flexinapp.com">support@flexinapp.com</a> within 14 days of purchase and we'll review your request.</p>
+    </details>
+
+    <details class="faq">
+      <summary>I can't sign in / I forgot my password.</summary>
+      <p>Go to <a href="https://www.flexinapp.com/app/#/login">flexinapp.com/app</a> and tap "Forgot password." We'll send a reset link to your email. If you don't see it, check your spam folder. Still stuck? Email <a href="mailto:support@flexinapp.com">support@flexinapp.com</a>.</p>
+    </details>
+
+    <details class="faq">
+      <summary>The app crashed or isn't working right.</summary>
+      <p>Try these steps in order: (1) force-quit and reopen the app, (2) restart your phone, (3) check that you're on the latest version in the App Store. If the issue persists, email <a href="mailto:support@flexinapp.com">support@flexinapp.com</a> with your device model, iOS version, and a short description — bonus points for a screenshot.</p>
+    </details>
+
+    <details class="faq">
+      <summary>How do I delete my account?</summary>
+      <p>Open the app → Settings → Delete Account. Or email <a href="mailto:support@flexinapp.com">support@flexinapp.com</a> from your account email and we'll handle it within 7 business days. All your data, including journal entries, will be permanently removed within 30 days.</p>
+    </details>
+
+    <details class="faq">
+      <summary>How do I export my journal entries?</summary>
+      <p>Open the app → Settings → Export Data. We'll email you a JSON file of your journal entries within a few minutes. This feature is free for all users, paid or not.</p>
+    </details>
+
+    <details class="faq">
+      <summary>I signed up on the web. Can I use the iPhone app?</summary>
+      <p>Yes. Sign in to the iPhone app with the same email and password — your journal, streaks, and progress sync automatically. Note: subscriptions started on the web ($4.99/mo) are managed through Stripe; subscriptions started on iOS ($6.99/mo) are managed through Apple. They are separate, so don't subscribe in both places.</p>
+    </details>
+
+    <details class="faq">
+      <summary>What's the difference between web and iOS pricing?</summary>
+      <p>Flexin Premium is $4.99/month on the web (paid via Stripe) and $6.99/month on iOS (paid via Apple). The price difference covers Apple's App Store fee. Features and content are identical on both platforms.</p>
+    </details>
+
+    <h2>Other ways to reach us</h2>
+    <p style="color: var(--muted); font-size: 16px;">For press, partnerships, or anything else: <a href="mailto:hello@flexinapp.com" style="color: var(--gold);">hello@flexinapp.com</a></p>
+
+    <div class="footer">
+      © 2026 Flexin. All rights reserved. · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
+    </div>
+  </main>
+</body>
+</html>

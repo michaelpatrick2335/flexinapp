@@ -1,0 +1,25 @@
+{
+  "name": "Flexin — Gamified Meditation",
+  "short_name": "Flexin",
+  "description": "Level up your mind. Meditate daily, earn bananas, unlock monk titles.",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#0d0f1a",
+  "theme_color": "#0d0f1a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://www.flexinapp.com/app/flexin_icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://www.flexinapp.com/app/flexin_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
