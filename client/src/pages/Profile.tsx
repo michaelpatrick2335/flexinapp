@@ -468,12 +468,12 @@ function BottomNav({
       background: `linear-gradient(180deg, ${t.bg}00 0%, ${t.bg}E6 35%, ${t.bg}F5 100%)`,
     }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", alignItems: "center", padding: "0 8px" }}>
-        <NavBtn t={t} label="Home"     onClick={onOpenFeed}    icon={<HomeIcon    color={active === "home" ? t.accent : t.textMuted} />} active={active === "home"} />
+        <NavBtn t={t} label="Workout"  onClick={onOpenLogWorkout} icon={<DumbbellGlyph color={t.textMuted} size={22} />} active={false} />
         <NavBtn t={t} label="Squad"    onClick={onOpenSquad}   icon={<SquadIcon   color={active === "squad" ? t.accent : t.textMuted} />} active={active === "squad"} />
         <div style={{ display: "grid", placeItems: "center" }}>
           <button
-            onClick={onOpenLogWorkout}
-            aria-label="Log workout"
+            onClick={onOpenFeed}
+            aria-label="Home"
             style={{
               width: 54, height: 54, borderRadius: 27,
               background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
@@ -482,7 +482,7 @@ function BottomNav({
               boxShadow: `0 8px 24px ${t.accentGlow}`,
               color: t.accentText,
             }}
-          ><DumbbellGlyph color={t.accentText} size={26} /></button>
+          ><HomeIcon color={t.accentText} size={26} /></button>
         </div>
         <NavBtn t={t} label="Progress" onClick={() => onOpenProgress?.()} icon={<ChartIcon color={active === "progress" ? t.accent : t.textMuted} />} active={active === "progress"} />
         <NavBtn t={t} label="Profile"  onClick={() => {}}                 icon={<PersonIcon color={active === "profile" ? t.accent : t.textMuted} />} active={active === "profile"} />

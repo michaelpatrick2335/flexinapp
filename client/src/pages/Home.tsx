@@ -455,11 +455,11 @@ function BottomNav({ t, onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
       }}
     >
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <NavBtn t={t} label="Home"     onClick={onOpenFeed}                icon={<HomeIcon     color={t.accent} />}     active={true} />
+        <NavBtn t={t} label="Workout"  onClick={onOpenLogWorkout}          icon={<DumbbellGlyph color={t.textMuted} size={22} />} active={false} />
         <NavBtn t={t} label="Squad"    onClick={onOpenSquad}               icon={<SquadIcon    color={t.textMuted} />} active={false} />
         <button
-          onClick={onOpenLogWorkout}
-          aria-label="Log workout"
+          onClick={onOpenFeed}
+          aria-label="Home"
           style={{
             width: 60, height: 60, borderRadius: 30, border: "none",
             background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
@@ -467,7 +467,7 @@ function BottomNav({ t, onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             boxShadow: `0 12px 36px ${t.accentGlow}`, cursor: "pointer",
             display: "grid", placeItems: "center", marginTop: -18,
           }}
-        ><DumbbellGlyph color={t.accentText} size={28} /></button>
+        ><HomeIcon color={t.accentText} size={28} /></button>
         <NavBtn t={t} label="Progress" onClick={() => onOpenProgress?.()} icon={<ChartIcon    color={t.textMuted} />} active={false} />
         <NavBtn t={t} label="Profile"  onClick={onOpenProfile}             icon={<ProfileIcon  color={t.textMuted} />} active={false} />
       </div>
