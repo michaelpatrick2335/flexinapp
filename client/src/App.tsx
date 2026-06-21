@@ -48,6 +48,8 @@ function AppContent() {
   // Buffered signup data — collected across Screens 3 & 4 before final submit
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
+  const [signupAge, setSignupAge] = useState<number | null>(null);
+  const [signupWeight, setSignupWeight] = useState<number | null>(null);
 
   // Capture ?join=CODE from URL once on mount and stash so signup/login can auto-join
   useEffect(() => {
@@ -184,9 +186,13 @@ function AppContent() {
           <NameEmail
             initialName={signupName}
             initialEmail={signupEmail}
-            onContinue={({ name, email }) => {
+            initialAge={signupAge != null ? String(signupAge) : ""}
+            initialWeight={signupWeight != null ? String(signupWeight) : ""}
+            onContinue={({ name, email, age, weightLbs }) => {
               setSignupName(name);
               setSignupEmail(email);
+              setSignupAge(age);
+              setSignupWeight(weightLbs);
               setSignupStep("sex");
             }}
             onBack={() => setSignupStep("create")}
@@ -212,6 +218,8 @@ function AppContent() {
                   sex,
                   themeOverride,
                   isTrainer: authMode === "trainer",
+                  age: signupAge,
+                  weightLbs: signupWeight,
                 }),
               });
               if (!r.ok) throw new Error(`signup ${r.status}`);

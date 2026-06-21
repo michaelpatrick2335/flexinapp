@@ -168,9 +168,10 @@ export async function registerRoutes(httpServer: Server, app: Express) {
   // - Sets the user as the active record so /api/user returns them next.
   app.post("/api/signup", (req, res) => {
     try {
-      const { name, email, sex, themeOverride, isTrainer } = req.body as {
+      const { name, email, sex, themeOverride, isTrainer, age, weightLbs } = req.body as {
         name?: string; email?: string; sex?: string;
         themeOverride?: string | null; isTrainer?: boolean;
+        age?: number | null; weightLbs?: number | null;
       };
       const emailNorm = (email || "").trim().toLowerCase();
       const nameNorm = (name || "").trim();
@@ -181,11 +182,15 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const user = storage.getOrCreateUser(emailNorm);
 
       // Apply signup fields
+      const ageNum = (typeof age === "number" && age > 0 && age < 130) ? Math.round(age) : null;
+      const weightNum = (typeof weightLbs === "number" && weightLbs > 0 && weightLbs < 2000) ? Math.round(weightLbs * 10) / 10 : null;
       const updated = storage.updateUser(user.id, {
         name: nameNorm,
         sex: (sex as any) || "unspecified",
         themeOverride: themeOverride || null,
         isTrainer: !!isTrainer,
+        age: ageNum,
+        weightLbs: weightNum,
       } as any);
       res.json(updated);
     } catch (e) {
@@ -821,6 +826,8 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           formLevel,
           formRank,
           isPremium: !!user.isPremium,
+          age: (user as any).age ?? null,
+          weightLbs: (user as any).weightLbs ?? null,
           xp,
           xpToNext,
           streakDays,

@@ -2,39 +2,62 @@ import React, { useState } from "react";
 import { useTheme } from "@/lib/ThemeProvider";
 
 // ────────────────────────────────────────────────────────────────────────────
-// Screen 3: Name & Email
+// Screen 3: Name, Email, Age & Weight
 //
-// Collects the user's display name (shown to their squad) and email.
-// Continue is disabled until both fields are non-empty and email looks valid.
-// On submit → Screen 4 (Sex Select).
+// Collects the user's display name (shown to their squad), email, age, and
+// body weight. Age + weight personalize the Home dashboard (calories,
+// protein target, default exercise weights). Continue is disabled until all
+// four fields are valid. On submit → Screen 4 (Sex Select).
 // ────────────────────────────────────────────────────────────────────────────
 
 interface NameEmailProps {
   initialName?: string;
   initialEmail?: string;
-  onContinue: (data: { name: string; email: string }) => void;
+  initialAge?: string;
+  initialWeight?: string;
+  onContinue: (data: {
+    name: string;
+    email: string;
+    age: number;
+    weightLbs: number;
+  }) => void;
   onBack: () => void;
 }
 
 export function NameEmail({
   initialName = "",
   initialEmail = "",
+  initialAge = "",
+  initialWeight = "",
   onContinue,
   onBack,
 }: NameEmailProps) {
   const t = useTheme();
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
+  const [age, setAge] = useState(initialAge);
+  const [weight, setWeight] = useState(initialWeight);
 
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
-  const canContinue = trimmedName.length >= 1 && emailValid;
+  const ageNum = parseInt(age, 10);
+  const ageValid = Number.isFinite(ageNum) && ageNum >= 13 && ageNum <= 100;
+  const weightNum = parseFloat(weight);
+  const weightValid =
+    Number.isFinite(weightNum) && weightNum >= 50 && weightNum <= 700;
+  const canContinue =
+    trimmedName.length >= 1 && emailValid && ageValid && weightValid;
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!canContinue) return;
-    onContinue({ name: trimmedName, email: trimmedEmail });
+    onContinue({
+      name: trimmedName,
+      email: trimmedEmail,
+      age: ageNum,
+      weightLbs: Math.round(weightNum * 10) / 10,
+    });
   };
 
   return (
@@ -77,7 +100,7 @@ export function NameEmail({
       </button>
 
       {/* Heading */}
-      <div style={{ marginTop: "12vh", marginBottom: 36, zIndex: 1 }}>
+      <div style={{ marginTop: "8vh", marginBottom: 24, zIndex: 1 }}>
         <h1
           style={{
             fontSize: "1.9rem",
@@ -98,7 +121,7 @@ export function NameEmail({
             lineHeight: 1.4,
           }}
         >
-          This is how your squad will know you.
+          We'll use this to dial in your stats.
         </p>
       </div>
 
@@ -144,13 +167,54 @@ export function NameEmail({
           style={inputStyle(t)}
         />
 
+        <div style={{ height: 4 }} />
+
+        {/* Age + Weight on one row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <FieldLabel theme={t} htmlFor="signup-age">
+              Age
+            </FieldLabel>
+            <input
+              id="signup-age"
+              data-testid="input-age"
+              type="number"
+              inputMode="numeric"
+              min={13}
+              max={100}
+              value={age}
+              onChange={(e) => setAge(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="28"
+              style={inputStyle(t)}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <FieldLabel theme={t} htmlFor="signup-weight">
+              Weight (lbs)
+            </FieldLabel>
+            <input
+              id="signup-weight"
+              data-testid="input-weight"
+              type="number"
+              inputMode="decimal"
+              min={50}
+              max={700}
+              step={0.1}
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="165"
+              style={inputStyle(t)}
+            />
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={!canContinue}
           data-testid="button-continue"
           className={canContinue ? "btn-primary-theme" : ""}
           style={{
-            marginTop: 28,
+            marginTop: 20,
             fontSize: "1.05rem",
             fontWeight: 600,
             opacity: canContinue ? 1 : 0.45,

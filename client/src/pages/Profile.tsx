@@ -15,6 +15,8 @@ interface DashboardUser {
   formLevel: number;
   formRank: string;
   isPremium: boolean;
+  age: number | null;
+  weightLbs: number | null;
   xp: number;
   xpToNext: number;
   streakDays: number;
@@ -219,6 +221,27 @@ export function Profile({
       <div style={{ padding: "20px 18px 0" }}>
         <RowCard t={t}>
           <Row t={t} icon={<MailIcon color={t.accent} />} label="Email" value={user.email} onClick={() => {/* read-only for now */}} />
+        </RowCard>
+      </div>
+
+      {/* ═════════════════════ STATS CARD ═════════════════════ */}
+      <div style={{ padding: "16px 18px 0" }}>
+        <RowCard t={t}>
+          <Row
+            t={t}
+            icon={<CakeIcon color={t.accent} />}
+            label="Age"
+            value={user.age != null ? `${user.age}` : "—"}
+            onClick={() => {/* edit coming soon */}}
+          />
+          <Divider t={t} />
+          <Row
+            t={t}
+            icon={<ScaleIcon color={t.accent} />}
+            label="Weight"
+            value={user.weightLbs != null ? `${user.weightLbs} lbs` : "—"}
+            onClick={() => {/* edit coming soon */}}
+          />
         </RowCard>
       </div>
 
@@ -503,6 +526,25 @@ function BoltIcon({ color, size = 18 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill={color} stroke={color} strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function CakeIcon({ color }: { color: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3v3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="2.6" r="1" fill={color} />
+      <rect x="4" y="10" width="16" height="10" rx="2" stroke={color} strokeWidth="1.8" />
+      <path d="M4 14c2 2 4 2 6 0s4-2 6 0 2 2 4 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function ScaleIcon({ color }: { color: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="5" width="18" height="14" rx="3" stroke={color} strokeWidth="1.8" />
+      <path d="M12 8a2.4 2.4 0 100 4.8A2.4 2.4 0 0012 8z" stroke={color} strokeWidth="1.8" />
+      <path d="M10.5 9.2L13 11" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

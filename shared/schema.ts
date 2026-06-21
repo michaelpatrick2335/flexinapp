@@ -41,6 +41,11 @@ export const user = sqliteTable("user", {
   formRank: text("form_rank").notNull().default("AWAKENING"),
   // User's daily squad-energy contribution (0-100). Recomputed daily.
   squadEnergy: integer("squad_energy").notNull().default(0),
+
+  // Captured during onboarding (NameEmail screen). Used to personalize
+  // dashboard stats, default volumes, calorie/protein guidance.
+  age: integer("age"),                // years
+  weightLbs: real("weight_lbs"),      // pounds
 });
 
 export const insertUserSchema = createInsertSchema(user).omit({ id: true });
