@@ -445,7 +445,7 @@ function BottomNav({
       background: `linear-gradient(180deg, ${t.bg}00 0%, ${t.bg}E6 35%, ${t.bg}F5 100%)`,
     }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", alignItems: "center", padding: "0 8px" }}>
-        <NavBtn t={t} label="Feed"     onClick={onOpenFeed}    icon={<SparkleIcon color={active === "feed" ? t.accent : t.textMuted} />} active={active === "feed"} />
+        <NavBtn t={t} label="Home"     onClick={onOpenFeed}    icon={<HomeIcon    color={active === "home" ? t.accent : t.textMuted} />} active={active === "home"} />
         <NavBtn t={t} label="Squad"    onClick={onOpenSquad}   icon={<SquadIcon   color={active === "squad" ? t.accent : t.textMuted} />} active={active === "squad"} />
         <div style={{ display: "grid", placeItems: "center" }}>
           <button
@@ -564,6 +564,13 @@ function SparkleIcon({ color }: { color: string }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3z" fill={color} stroke={color} strokeWidth="1" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function HomeIcon({ color }: { color: string }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
 }

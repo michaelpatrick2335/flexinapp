@@ -841,7 +841,7 @@ function BottomNav({ t, active, onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpe
       backdropFilter: "blur(10px)",
     }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <NavBtn t={t} label="Feed"     onClick={onOpenFeed}             icon={<SparkleIcon color={active === "feed" ? t.accent : t.textMuted} />} active={active === "feed"} />
+        <NavBtn t={t} label="Home"     onClick={onOpenFeed}             icon={<HomeIcon    color={active === "home" ? t.accent : t.textMuted} />} active={active === "home"} />
         <NavBtn t={t} label="Squad"    onClick={onOpenSquad}            icon={<SquadIcon   color={active === "squad" ? t.accent : t.textMuted} />} active={active === "squad"} />
         <button
           onClick={onOpenLogWorkout}
@@ -965,6 +965,13 @@ function SparkleIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function HomeIcon({ color, size = 22 }: { color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
 }

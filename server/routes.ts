@@ -1278,49 +1278,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // FLEXIN: full Feed payload (Squad activity, milestones, MVP callouts, PRs)
-  app.get("/api/feed", (req, res) => {
-    try {
-      const user = getCurrentUser(req);
-      const isFemale = user.sex === "female";
-
-      // Curated feed posts — richer than the dashboard summary.
-      // In production this comes from squad_activity + workout + scan tables.
-      const posts = isFemale
-        ? [
-            { id: 101, userName: "Jasmine", initials: "J", color: "#FF4D8F", kind: "workout",  title: "Glute Day",            body: "Hip thrusts: 3x12 @ 95lb. Felt strong.", energyDelta: 9,  minutesAgo: 8,   reactions: { fire: 12, heart: 4, flex: 3 }, comments: 2 },
-            { id: 102, userName: "Mia",     initials: "M", color: "#FF7AB6", kind: "milestone", title: "100 hip thrust club",  body: "Hit 100 reps this week. Onto 150 next.",  energyDelta: 5,  minutesAgo: 47,  reactions: { heart: 8, fire: 6 }, comments: 4 },
-            { id: 103, userName: "Riley",   initials: "R", color: "#FF8FA3", kind: "mvp",       title: "Weekly MVP",          body: "Riley topped the squad with +38 energy.", energyDelta: 0,  minutesAgo: 110, reactions: { fire: 18, heart: 9, flex: 5 }, comments: 7 },
-            { id: 104, userName: "Sasha",   initials: "S", color: "#C7517A", kind: "scan",      title: "New scan posted",     body: "Down 1.4% body fat. Lifts are paying off.", energyDelta: 4,  minutesAgo: 240, reactions: { heart: 11, fire: 3 }, comments: 3 },
-            { id: 105, userName: "Bri",     initials: "B", color: "#9C2B5B", kind: "workout",   title: "Core Day",             body: "3 rounds. Plank PR — 90s.",                 energyDelta: 6,  minutesAgo: 720, reactions: { flex: 6, fire: 3 }, comments: 1 },
-          ]
-        : [
-            { id: 201, userName: "Marcus", initials: "M", color: "#1E5FFF", kind: "workout",  title: "Push Day",            body: "Bench: 3x5 @ 225. Smooth reps.",          energyDelta: 8,  minutesAgo: 18,  reactions: { fire: 14, flex: 4 }, comments: 3 },
-            { id: 202, userName: "Dre",    initials: "D", color: "#3E7BFF", kind: "pr",        title: "315lb bench PR",      body: "Locked it out clean. 1RM up 10lb this block.", energyDelta: 12, minutesAgo: 64,  reactions: { fire: 22, bolt: 8, flex: 6 }, comments: 9 },
-            { id: 203, userName: "Trev",   initials: "T", color: "#5B92FF", kind: "mvp",       title: "Weekly MVP",          body: "Trev topped the squad with +42 energy.",  energyDelta: 0,  minutesAgo: 132, reactions: { fire: 19, flex: 7 }, comments: 5 },
-            { id: 204, userName: "Kane",   initials: "K", color: "#7BAEFF", kind: "scan",      title: "New scan posted",     body: "Chest up 12%, arms +18%. Cut paying off.", energyDelta: 5,  minutesAgo: 320, reactions: { fire: 8, flex: 4 }, comments: 2 },
-            { id: 205, userName: "Jake",   initials: "J", color: "#1240B0", kind: "workout",   title: "Leg Day",             body: "Squat: 5x5 @ 275. Quads cooked.",         energyDelta: 7,  minutesAgo: 600, reactions: { fire: 9, bolt: 3 }, comments: 2 },
-          ];
-
-      // Daily squad summary at top
-      const summary = {
-        squadName: isFemale ? "Iron Sisters" : "Iron Brotherhood",
-        squadEnergyToday: 142,
-        squadEnergyTarget: 200,
-        activeMembers: 5,
-        memberCount: 6,
-      };
-
-      res.json({
-        summary,
-        posts,
-        generatedAt: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.error("/api/feed", e);
-      res.status(500).json({ error: "Failed to load feed" });
-    }
-  });
+  // Note: /api/feed removed — Squad page's LIVE ACTIVITY section covers it.
 
   return httpServer;
 }
