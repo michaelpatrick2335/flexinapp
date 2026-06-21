@@ -916,21 +916,25 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const user = getCurrentUser(req);
       const isFemale = user.sex === "female";
 
-      const memberPalette = isFemale
+      // Members of the active squad. avatarUrl is null for v1 — once the
+      // Profile/Settings screen lets a user upload a photo, populate this
+      // field and the Squad UI will render it automatically (initials are
+      // the fallback for any user without an avatar uploaded yet).
+      const memberPalette: { name: string; initials: string; bg: string; avatarUrl: string | null; lastActiveAgo: string }[] = isFemale
         ? [
-            { name: "Jasmine", initials: "J", bg: "#FF4D8F" },
-            { name: "Mia",     initials: "M", bg: "#FF7AB6" },
-            { name: "Riley",   initials: "R", bg: "#FF8FA3" },
-            { name: "Sasha",   initials: "S", bg: "#C7517A" },
-            { name: "Bri",     initials: "B", bg: "#9C2B5B" },
+            { name: "Jasmine", initials: "J", bg: "#FF4D8F", avatarUrl: null, lastActiveAgo: "12m ago" },
+            { name: "Mia",     initials: "M", bg: "#FF7AB6", avatarUrl: null, lastActiveAgo: "28m ago" },
+            { name: "Riley",   initials: "R", bg: "#FF8FA3", avatarUrl: null, lastActiveAgo: "1h ago"  },
+            { name: "Sasha",   initials: "S", bg: "#C7517A", avatarUrl: null, lastActiveAgo: "1h ago"  },
+            { name: "Bri",     initials: "B", bg: "#9C2B5B", avatarUrl: null, lastActiveAgo: "4d ago"  },
           ]
         : [
-            { name: "Jake",   initials: "J", bg: "#1E5FFF" },
-            { name: "Chris",  initials: "C", bg: "#3E7BFF" },
-            { name: "Tyler",  initials: "T", bg: "#5C8BFF" },
-            { name: "Alex",   initials: "A", bg: "#2C4F9E" },
-            { name: "Mike",   initials: "M", bg: "#1A3A7A" },
-            { name: "Josh",   initials: "J", bg: "#13285A" },
+            { name: "Jake",   initials: "J", bg: "#1E5FFF", avatarUrl: null, lastActiveAgo: "12m ago" },
+            { name: "Chris",  initials: "C", bg: "#3E7BFF", avatarUrl: null, lastActiveAgo: "28m ago" },
+            { name: "Tyler",  initials: "T", bg: "#5C8BFF", avatarUrl: null, lastActiveAgo: "1h ago"  },
+            { name: "Alex",   initials: "A", bg: "#2C4F9E", avatarUrl: null, lastActiveAgo: "1h ago"  },
+            { name: "Mike",   initials: "M", bg: "#1A3A7A", avatarUrl: null, lastActiveAgo: "4d ago"  },
+            { name: "Josh",   initials: "J", bg: "#13285A", avatarUrl: null, lastActiveAgo: "3d ago"  },
           ];
 
       const squadName = isFemale ? "THE BABES" : "THE BOYS";

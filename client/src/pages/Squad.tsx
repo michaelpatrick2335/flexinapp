@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn } from "@/lib/queryClient";
@@ -22,7 +22,13 @@ interface SquadActivityItem {
   lastLifted?: string;
 }
 
-interface SquadMember { name: string; initials: string; bg: string; }
+interface SquadMember {
+  name: string;
+  initials: string;
+  bg: string;
+  avatarUrl?: string | null;
+  lastActiveAgo?: string;
+}
 
 interface SquadPayload {
   squad: {
@@ -52,6 +58,12 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   const t = useTheme();
   const isFemale = t.name === "pink";
   const maxAvatar = isFemale ? maxFemale : maxMale;
+
+  // Modal state: which energy picker is open.
+  // "send"   = bottom-of-Live-Activity "Send energy" picker (member targets).
+  // "invite" = members-box "+" invite sheet.
+  const [modal, setModal] = useState<null | "send" | "invite">(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<SquadPayload>({
     queryKey: ["/api/squad"],
@@ -208,12 +220,15 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
 
           {/* Reactions strip */}
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <button style={{
-              flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              background: "transparent", color: t.accent, border: `1px solid ${t.accent}40`,
-              borderRadius: 18, padding: "9px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}>
+            <button
+              onClick={() => { setSentTo(null); setModal("send"); }}
+              style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                background: "transparent", color: t.accent, border: `1px solid ${t.accent}40`,
+                borderRadius: 18, padding: "9px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
               <BoltIcon color={t.accent} size={13} />
               Send energy
             </button>
@@ -246,11 +261,13 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             <div style={{ display: "flex", flexShrink: 0 }}>
               {aiInsight.inactiveMembers.slice(0, 2).map((m, i) => (
                 <div key={m.name} style={{
-                  width: 32, height: 32, borderRadius: 16, marginLeft: i === 0 ? 0 : -10,
+                  marginLeft: i === 0 ? 0 : -10,
+                  borderRadius: 16,
                   border: `2px solid ${t.accent}`, boxShadow: `0 0 8px ${t.accentGlow}`,
-                  background: memberByName(m.name).bg, color: "#fff",
-                  display: "grid", placeItems: "center", fontSize: 12, fontWeight: 800,
-                }}>{m.name[0]}</div>
+                  overflow: "hidden",
+                }}>
+                  <Avatar member={memberByName(m.name)} size={28} t={t} ringless />
+                </div>
               ))}
             </div>
           </div>
@@ -289,11 +306,9 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
                   background: t.bgInput, borderRadius: 12, padding: 8,
                   display: "flex", alignItems: "center", gap: 8, minWidth: 0,
                 }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 16, flexShrink: 0,
-                    background: mp.bg, color: "#fff",
-                    display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800, opacity: 0.6,
-                  }}>{mp.initials}</div>
+                  <div style={{ opacity: 0.6, flexShrink: 0 }}>
+                    <Avatar member={mp} size={32} t={t} />
+                  </div>
                   <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
                       {m.name}
@@ -328,6 +343,48 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         </Card>
       </section>
 
+      {/* ═════════════════════ MEMBERS ═════════════════════ */}
+      <section style={{ padding: "12px 18px 0" }}>
+        <Card t={t}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <SquadIcon color={t.accent} size={18} />
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: t.text }}>MEMBERS</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.textMuted }}>{squad.members.length}</span>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, justifyItems: "center" }}>
+            {squad.members.map((m) => (
+              <div key={m.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0, width: "100%" }}>
+                <Avatar member={m} size={56} t={t} />
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: t.text,
+                  maxWidth: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center",
+                }}>{m.name}</div>
+              </div>
+            ))}
+            {/* + Invite tile */}
+            <button
+              onClick={() => setModal("invite")}
+              aria-label="Invite member"
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                background: "transparent", border: "none", padding: 0, cursor: "pointer", width: "100%",
+              }}
+            >
+              <div style={{
+                width: 56, height: 56, borderRadius: 28,
+                border: `2px dashed ${t.accent}80`, background: "transparent",
+                display: "grid", placeItems: "center",
+                color: t.accent, fontSize: 28, fontWeight: 300, lineHeight: 1,
+              }}>+</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>Invite</div>
+            </button>
+          </div>
+        </Card>
+      </section>
+
       {/* ═════════════════════ WEEKLY MVP ═════════════════════ */}
       <section style={{ padding: "12px 18px 0" }}>
         <Card t={t}>
@@ -342,9 +399,10 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
               <div style={{
                 width: 80, height: 80, borderRadius: 40,
                 border: `3px solid ${t.accent}`, boxShadow: `0 0 20px ${t.accentGlow}`,
-                background: memberByName(mvp.name).bg, color: "#fff",
-                display: "grid", placeItems: "center", fontSize: 28, fontWeight: 800,
-              }}>{memberByName(mvp.name).initials}</div>
+                overflow: "hidden",
+              }}>
+                <Avatar member={memberByName(mvp.name)} size={74} t={t} ringless big />
+              </div>
               <span style={{ position: "absolute", top: -16, left: "50%", transform: "translateX(-50%)", fontSize: 28 }}>👑</span>
             </div>
 
@@ -366,6 +424,31 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         </Card>
       </section>
 
+      {/* ═════════════════════ MODALS ═════════════════════ */}
+      {modal === "send" && (
+        <SendEnergyModal
+          t={t}
+          members={squad.members}
+          sentTo={sentTo}
+          onPick={async (memberName) => {
+            setSentTo(memberName);
+            // fire-and-forget reaction so the no-op endpoint still gets a hit
+            try {
+              await fetch("/api/squad/react", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "fire", target: memberName }),
+              });
+            } catch {}
+            setTimeout(() => { setModal(null); setSentTo(null); }, 900);
+          }}
+          onClose={() => { setModal(null); setSentTo(null); }}
+        />
+      )}
+      {modal === "invite" && (
+        <InviteModal t={t} squadName={squad.name} onClose={() => setModal(null)} />
+      )}
+
       {/* ═════════════════════ BOTTOM NAV ═════════════════════ */}
       <BottomNav
         t={t}
@@ -381,6 +464,43 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
 }
 
 // ═══════════════════════════════ COMPONENTS ═══════════════════════════════
+
+// Avatar: shows the user's uploaded photo if available, otherwise falls back
+// to a tinted circle with their initials. Profile-picture uploads happen on
+// the Profile/Settings screen (next milestone) — once a user has uploaded
+// one, the backend will start returning a non-null avatarUrl and this
+// component will display it automatically with no UI change here.
+function Avatar({ member, size, t, ringless = false, big = false }: {
+  member: SquadMember; size: number; t: any; ringless?: boolean; big?: boolean;
+}) {
+  const hasPhoto = !!member.avatarUrl;
+  const fontSize = big ? Math.round(size * 0.42) : Math.max(11, Math.round(size * 0.42));
+  const common: React.CSSProperties = {
+    width: size, height: size, borderRadius: size / 2,
+    flexShrink: 0, overflow: "hidden",
+    display: "grid", placeItems: "center",
+  };
+  if (hasPhoto) {
+    return (
+      <div style={{ ...common, background: t.bgElevated }}>
+        <img
+          src={member.avatarUrl as string}
+          alt={member.name}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div style={{
+      ...common,
+      background: member.bg, color: "#fff",
+      fontWeight: 800, fontSize,
+      ...(ringless ? {} : {}),
+    }}>{member.initials}</div>
+  );
+}
+
 function Card({ t, children }: { t: any; children: React.ReactNode }) {
   return (
     <div style={{
@@ -470,11 +590,7 @@ function ActivityRow({ t, item, member }: { t: any; item: SquadActivityItem; mem
 
   return (
     <div style={{ padding: "8px 0", display: "flex", alignItems: "flex-start", gap: 10 }}>
-      <div style={{
-        width: 34, height: 34, borderRadius: 17, flexShrink: 0,
-        background: member.bg, color: "#fff",
-        display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800,
-      }}>{member.initials}</div>
+      <Avatar member={member} size={34} t={t} />
       <div style={{ flexShrink: 0, marginTop: 6 }}>{icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, color: t.text, lineHeight: 1.35 }}>
@@ -529,6 +645,186 @@ function ReactionPill({ t, emoji }: { t: any; emoji: string }) {
       display: "grid", placeItems: "center", fontSize: 16, cursor: "pointer",
       color: t.text, padding: 0,
     }}>{emoji}</button>
+  );
+}
+
+// =================== MODALS ===================
+// Bottom-sheet style modal scrim used by Send-Energy and Invite.
+function ModalScrim({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SendEnergyModal({ t, members, sentTo, onPick, onClose }: {
+  t: any; members: SquadMember[]; sentTo: string | null;
+  onPick: (name: string) => void; onClose: () => void;
+}) {
+  return (
+    <ModalScrim onClose={onClose}>
+      <div style={{
+        background: t.bgElevated, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        border: `1px solid ${t.border}`, borderBottom: "none",
+        padding: 18, paddingBottom: "calc(env(safe-area-inset-bottom) + 18px)",
+      }}>
+        <div style={{ width: 40, height: 4, background: t.border, borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <BoltIcon color={t.accent} size={18} />
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: t.text }}>Send energy</h2>
+        </div>
+        <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 14 }}>
+          Pick a squad member to hit with a charge.
+        </div>
+
+        {sentTo ? (
+          <div style={{
+            padding: "24px 16px", textAlign: "center",
+            color: t.accent, fontSize: 16, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>
+            <BoltIcon color={t.accent} size={20} />
+            Energy sent to {sentTo}!
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            {members.map((m) => (
+              <button
+                key={m.name}
+                onClick={() => onPick(m.name)}
+                style={{
+                  background: "transparent", border: "none", padding: "8px 4px",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                  cursor: "pointer", borderRadius: 12,
+                }}
+              >
+                <div style={{ position: "relative" }}>
+                  <Avatar member={m} size={56} t={t} />
+                  <div style={{
+                    position: "absolute", bottom: -2, right: -2,
+                    width: 22, height: 22, borderRadius: 11,
+                    background: t.accent, color: t.accentText,
+                    display: "grid", placeItems: "center",
+                    boxShadow: `0 0 8px ${t.accentGlow}`,
+                  }}>
+                    <BoltIcon color={t.accentText} size={12} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+                  {m.name}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: 18, width: "100%",
+            background: "transparent", color: t.textMuted,
+            border: `1px solid ${t.border}`,
+            borderRadius: 22, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </ModalScrim>
+  );
+}
+
+function InviteModal({ t, squadName, onClose }: { t: any; squadName: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const inviteUrl = `https://www.flexinapp.com/join/FLEX-${(Math.random().toString(36).slice(2, 7) || "DEMO1").toUpperCase()}`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  }
+  async function share() {
+    if ((navigator as any).share) {
+      try { await (navigator as any).share({ title: "Join my flexin squad", text: `Join ${squadName} on flexin.`, url: inviteUrl }); } catch {}
+    } else {
+      copy();
+    }
+  }
+
+  return (
+    <ModalScrim onClose={onClose}>
+      <div style={{
+        background: t.bgElevated, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        border: `1px solid ${t.border}`, borderBottom: "none",
+        padding: 18, paddingBottom: "calc(env(safe-area-inset-bottom) + 18px)",
+      }}>
+        <div style={{ width: 40, height: 4, background: t.border, borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <SquadIcon color={t.accent} size={20} />
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: t.text }}>Invite to {squadName}</h2>
+        </div>
+        <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 14 }}>
+          Share this link. Whoever taps it joins your squad after they sign up.
+        </div>
+
+        <div style={{
+          background: t.bgInput, border: `1px solid ${t.border}`,
+          borderRadius: 12, padding: "12px 14px",
+          fontSize: 13, color: t.text, fontFamily: "ui-monospace, monospace",
+          wordBreak: "break-all",
+        }}>{inviteUrl}</div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <button
+            onClick={copy}
+            style={{
+              flex: 1, background: "transparent", color: t.accent,
+              border: `1px solid ${t.accent}80`,
+              borderRadius: 22, padding: "12px 16px", fontSize: 13, fontWeight: 800, letterSpacing: 0.6, cursor: "pointer",
+            }}
+          >
+            {copied ? "Copied" : "Copy link"}
+          </button>
+          <button
+            onClick={share}
+            style={{
+              flex: 1,
+              background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+              color: t.accentText, border: "none",
+              borderRadius: 22, padding: "12px 16px", fontSize: 13, fontWeight: 800, letterSpacing: 0.6,
+              boxShadow: `0 8px 24px ${t.accentGlow}`, cursor: "pointer",
+            }}
+          >
+            Share
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: 12, width: "100%",
+            background: "transparent", color: t.textMuted,
+            border: `1px solid ${t.border}`,
+            borderRadius: 22, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </ModalScrim>
   );
 }
 
