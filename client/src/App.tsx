@@ -8,6 +8,7 @@ import { queryClient, getQueryFn, getUserEmail, clearUserEmail, hasPickedExperie
 import { clearCustomExercisesForCurrentUser } from "@/lib/custom-breath-exercises";
 import { Welcome } from "@/pages/Welcome";
 import { CreateAccount } from "@/pages/CreateAccount";
+import { NameEmail } from "@/pages/NameEmail";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -22,11 +23,22 @@ const IS_IOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios"
 // | "login" (existing-user login) | "trainer" (Trainer signup path)
 type AuthMode = "welcome" | "signup" | "login" | "trainer";
 
+// Sub-step within the signup/trainer flow:
+//   "create"      → Screen 2 (Create Account: Apple/Google/Email)
+//   "name-email"  → Screen 3 (Name & Email)
+//   "sex"         → Screen 4 (Sex Select)
+type SignupStep = "create" | "name-email" | "sex";
+
 function AppContent() {
   // Local flag: once user taps a level, go straight to Dashboard — no re-fetch needed
   const [experienceDone, setExperienceDone] = useState(false);
   // Which auth screen to show when no user is logged in
   const [authMode, setAuthMode] = useState<AuthMode>("welcome");
+  // Sub-step inside the signup/trainer flow
+  const [signupStep, setSignupStep] = useState<SignupStep>("create");
+  // Buffered signup data — collected across Screens 3 & 4 before final submit
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
 
   // Capture ?join=CODE from URL once on mount and stash so signup/login can auto-join
   useEffect(() => {
@@ -136,23 +148,49 @@ function AppContent() {
     // Signup & trainer signup both start at the Create Account screen.
     // Trainer path will later flag isTrainer=true after auth completes.
     if (authMode === "signup" || authMode === "trainer") {
+      if (signupStep === "create") {
+        return (
+          <CreateAccount
+            onApple={() => {
+              // TODO: native Sign in with Apple bridge (Capacitor plugin)
+              // For now, fall through to the legacy onboarding so dev can keep moving.
+              setAuthMode("login");
+            }}
+            onGoogle={() => {
+              // TODO: Google OAuth
+              setAuthMode("login");
+            }}
+            onEmail={() => setSignupStep("name-email")}
+            onLogIn={() => setAuthMode("login")}
+            onBack={() => {
+              setSignupStep("create");
+              setAuthMode("welcome");
+            }}
+          />
+        );
+      }
+
+      if (signupStep === "name-email") {
+        return (
+          <NameEmail
+            initialName={signupName}
+            initialEmail={signupEmail}
+            onContinue={({ name, email }) => {
+              setSignupName(name);
+              setSignupEmail(email);
+              setSignupStep("sex");
+            }}
+            onBack={() => setSignupStep("create")}
+          />
+        );
+      }
+
+      // signupStep === "sex" — Screen 4 not built yet; fall through to legacy
       return (
-        <CreateAccount
-          onApple={() => {
-            // TODO: native Sign in with Apple bridge (Capacitor plugin)
-            // For now, fall through to the legacy onboarding so dev can keep moving.
-            setAuthMode("login");
+        <Onboarding
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/user"] });
           }}
-          onGoogle={() => {
-            // TODO: Google OAuth
-            setAuthMode("login");
-          }}
-          onEmail={() => {
-            // TODO: route to Screen 3 (Name & Email). For now, legacy onboarding.
-            setAuthMode("login");
-          }}
-          onLogIn={() => setAuthMode("login")}
-          onBack={() => setAuthMode("welcome")}
         />
       );
     }
