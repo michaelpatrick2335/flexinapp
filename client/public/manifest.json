@@ -1,7 +1,7 @@
 {
-  "name": "Flexin — Gamified Meditation",
+  "name": "Flexin — Train. Track. Transform.",
   "short_name": "Flexin",
-  "description": "Level up your mind. Meditate daily, earn bananas, unlock monk titles.",
+  "description": "Squad-powered fitness. Track your transformation, lift with your crew, level up every week.",
   "start_url": "/app/",
   "scope": "/app/",
   "display": "standalone",

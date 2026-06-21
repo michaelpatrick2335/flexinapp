@@ -85,8 +85,12 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     min-height: 100dvh;
-    background: radial-gradient(ellipse at top, #1a1f3a 0%, #0d0f1a 60%);
+    /* Theme-driven background, set by ThemeProvider via --theme-bg.
+       Fallback gradient matches the legacy meditation gradient until
+       a screen has been swapped to the new theme system. */
+    background: var(--theme-bg, radial-gradient(ellipse at top, #1a1f3a 0%, #0d0f1a 60%));
     background-attachment: fixed;
+    color: var(--theme-text, #fff);
   }
 
   h1, h2, h3, h4 {
@@ -96,7 +100,74 @@
 }
 
 /* ============================================================
-   Flexin Custom Styles
+   Flexin Theme Utilities  (new screens use these)
+   ============================================================ */
+
+/* Theme-driven primary button (gradient pill) */
+.btn-primary-theme {
+  background: linear-gradient(135deg, var(--theme-gradient-from), var(--theme-gradient-to));
+  color: var(--theme-accent-text);
+  border-radius: 9999px;
+  font-weight: 600;
+  padding: 16px 24px;
+  box-shadow: 0 8px 32px var(--theme-accent-glow);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+.btn-primary-theme:hover { transform: translateY(-1px); }
+.btn-primary-theme:active { transform: translateY(0); }
+
+/* Theme-driven outlined button */
+.btn-outlined-theme {
+  background: transparent;
+  color: var(--theme-text);
+  border: 1.5px solid var(--theme-borderStrong, var(--theme-accent));
+  border-radius: 9999px;
+  font-weight: 600;
+  padding: 16px 24px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-outlined-theme:hover { background: var(--theme-accent-soft); }
+
+/* Flexin script logo color tint (overrides white logo with theme accent) */
+.flexin-logo-tint {
+  filter: drop-shadow(0 0 24px var(--theme-accent-glow));
+}
+
+/* Decorative blue/pink arc lines (top-right of screens) */
+.theme-arc {
+  position: absolute;
+  top: -20px;
+  right: -60px;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  border: 2px solid var(--theme-accent);
+  opacity: 0.4;
+  pointer-events: none;
+  filter: blur(0.5px) drop-shadow(0 0 12px var(--theme-accent-glow));
+}
+.theme-arc::before {
+  content: "";
+  position: absolute;
+  inset: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--theme-accent);
+  opacity: 0.6;
+}
+.theme-arc::after {
+  content: "";
+  position: absolute;
+  inset: 60px;
+  border-radius: 50%;
+  border: 1px solid var(--theme-accent);
+  opacity: 0.4;
+}
+
+/* ============================================================
+   Flexin Legacy Styles  (still used by Monky-era screens until swapped)
    ============================================================ */
 
 /* Glowing gold text */

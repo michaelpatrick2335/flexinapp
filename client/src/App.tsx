@@ -6,6 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { Clipboard } from "@capacitor/clipboard";
 import { queryClient, getQueryFn, getUserEmail, clearUserEmail, hasPickedExperience } from "@/lib/queryClient";
 import { clearCustomExercisesForCurrentUser } from "@/lib/custom-breath-exercises";
+import { Welcome } from "@/pages/Welcome";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -16,9 +17,15 @@ import type { User } from "@shared/schema";
 
 const IS_IOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 
+// Auth entry mode: "welcome" (first screen) | "signup" (Create Account flow)
+// | "login" (existing-user login) | "trainer" (Trainer signup path)
+type AuthMode = "welcome" | "signup" | "login" | "trainer";
+
 function AppContent() {
   // Local flag: once user taps a level, go straight to Dashboard — no re-fetch needed
   const [experienceDone, setExperienceDone] = useState(false);
+  // Which auth screen to show when no user is logged in
+  const [authMode, setAuthMode] = useState<AuthMode>("welcome");
 
   // Capture ?join=CODE from URL once on mount and stash so signup/login can auto-join
   useEffect(() => {
@@ -113,8 +120,23 @@ function AppContent() {
     return <FlexinLoader />;
   }
 
-  // Not logged in → login screen
+  // Not logged in → show Welcome first, then route into the appropriate flow
   if (!user) {
+    if (authMode === "welcome") {
+      return (
+        <Welcome
+          onGetStarted={() => setAuthMode("signup")}
+          onLogIn={() => setAuthMode("login")}
+          onTrainerSignup={() => setAuthMode("trainer")}
+        />
+      );
+    }
+    // signup / login / trainer all currently fall through to the legacy
+    // Onboarding (Monky-era login screen). We will replace each of these
+    // with their dedicated screens in upcoming swaps:
+    //   signup  → Screens 2 (Create Account) + 3 (Name & Email) + 4 (Sex Select)
+    //   login   → dedicated Login screen
+    //   trainer → Trainer signup flow (same as signup but flagged isTrainer)
     return (
       <Onboarding
         onComplete={() => {
