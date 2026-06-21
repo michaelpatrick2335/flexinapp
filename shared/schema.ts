@@ -163,3 +163,31 @@ export const squadActivity = sqliteTable("squad_activity", {
 export const insertSquadActivitySchema = createInsertSchema(squadActivity).omit({ id: true });
 export type InsertSquadActivity = z.infer<typeof insertSquadActivitySchema>;
 export type SquadActivity = typeof squadActivity.$inferSelect;
+
+// ─── FLEXIN: Progress Scans ─────────────────────────────────────────────────
+// Each row is one body-scan photo + the analysis we ran on it.
+// `silhouette_params` JSON drives the parametric muscle-map SVG (per-user shape).
+// `muscle_emphasis` JSON drives the Home dashboard's per-muscle-group progress.
+export const scan = sqliteTable("scan", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull(),
+  photoPath: text("photo_path").notNull(),       // /scan-photos/<id>.jpg
+  thumbPath: text("thumb_path"),                  // optional smaller version
+  scannedAt: text("scanned_at").notNull(),        // ISO datetime
+  // High-level body composition estimates (0-100 scales unless noted)
+  bodyFatPct: real("body_fat_pct"),               // estimated %
+  muscleMassPct: real("muscle_mass_pct"),         // estimated lean-mass score 0-100
+  buildLabel: text("build_label"),                // "lean" | "athletic" | "muscular" | "bulk" | "soft"
+  // Parametric silhouette params — drives the SVG renderer
+  // Stored as JSON string for SQLite portability
+  // { shoulderW, chestW, waistW, hipW, armThickness, legThickness, definition, glow: {chest,arms,…} }
+  silhouetteParams: text("silhouette_params").notNull(),
+  // Per-muscle-group emphasis snapshot (drives Home progress bars).
+  // { chest:78, back:62, arms:74, shoulders:58, legs:51, core:55, glutes:45 }
+  muscleEmphasis: text("muscle_emphasis").notNull(),
+  // Raw vision-model JSON we got back, for debugging / future re-analysis
+  rawAnalysis: text("raw_analysis"),
+});
+export const insertScanSchema = createInsertSchema(scan).omit({ id: true });
+export type InsertScan = z.infer<typeof insertScanSchema>;
+export type Scan = typeof scan.$inferSelect;

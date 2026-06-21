@@ -2,10 +2,11 @@ import type { Express, Request } from "express";
 import type { Server } from "http";
 import { storage, db } from "./storage";
 import * as schema from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { analyzePhoto } from "./photoAnalysis";
 
 // ── Voice cue storage ─────────────────────────────────────────────────────
 const VOICE_DIR = path.join(process.cwd(), "voice-cues");
@@ -51,6 +52,26 @@ const profilePicUpload = multer({
   },
 });
 
+// ── Scan photo storage ────────────────────────────────────────────────────────
+const SCAN_PHOTO_DIR = path.join(process.cwd(), "scan-photos");
+if (!fs.existsSync(SCAN_PHOTO_DIR)) fs.mkdirSync(SCAN_PHOTO_DIR, { recursive: true });
+
+const scanPhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: SCAN_PHOTO_DIR,
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      const stamp = Date.now();
+      cb(null, `scan_${stamp}${ext}`);
+    },
+  }),
+  limits: { fileSize: 16 * 1024 * 1024 }, // 16MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Image files only"));
+  },
+});
+
 const voiceUpload = multer({
   storage: multer.diskStorage({
     destination: VOICE_DIR,
@@ -75,6 +96,12 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
   // Get or create user
   const TEST_ACCOUNTS = ["mdore06@gmail.com", "michaelpatrick2335@gmail.com", "appreview@flexinapp.com"];
+
+  // Helper used by Progress endpoints to safely parse stored JSON
+  function safeParseProgress(s: string | null | undefined) {
+    if (!s) return null;
+    try { return JSON.parse(s); } catch { return null; }
+  }
 
   // Helper to get current user from x-user-email header
   function getCurrentUser(req: Request): schema.User {
@@ -655,22 +682,38 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         : formLevel >= 4  ? "BUILDING"
         : "AWAKENING";
 
+      // If the user has at least one body scan, drive muscle-group progress
+      // bars from the latest scan's muscle emphasis. Otherwise fall back to
+      // sex-typical seed values so a brand-new account still shows something.
+      const latestScanRow = db
+        .select()
+        .from(schema.scan)
+        .where(eq(schema.scan.userId, user.id))
+        .orderBy(desc(schema.scan.scannedAt))
+        .limit(1)
+        .all()[0];
+      const emphasis = latestScanRow ? safeParseProgress(latestScanRow.muscleEmphasis) : null;
+
+      const seedFemale = { glutes: 78, core: 62, legs: 71, back: 44, shoulders: 38, arms: 29 };
+      const seedMale   = { chest: 81, back: 67, arms: 72, shoulders: 58, legs: 45, core: 51 };
+      const v = (k: string, fallback: number) => Math.round((emphasis as any)?.[k] ?? fallback);
+
       const muscleGroups = isFemale
         ? [
-            { key: "glutes", label: "Glutes", progress: 78, streakDays: 5 },
-            { key: "core", label: "Core", progress: 62, streakDays: 3 },
-            { key: "legs", label: "Legs", progress: 71, streakDays: 4 },
-            { key: "back", label: "Back", progress: 44, streakDays: 2 },
-            { key: "shoulders", label: "Shoulders", progress: 38, streakDays: 1 },
-            { key: "arms", label: "Arms", progress: 29, streakDays: 0 },
+            { key: "glutes",    label: "Glutes",    progress: v("glutes",    seedFemale.glutes),    streakDays: 5 },
+            { key: "core",      label: "Core",      progress: v("core",      seedFemale.core),      streakDays: 3 },
+            { key: "legs",      label: "Legs",      progress: v("legs",      seedFemale.legs),      streakDays: 4 },
+            { key: "back",      label: "Back",      progress: v("back",      seedFemale.back),      streakDays: 2 },
+            { key: "shoulders", label: "Shoulders", progress: v("shoulders", seedFemale.shoulders), streakDays: 1 },
+            { key: "arms",      label: "Arms",      progress: v("arms",      seedFemale.arms),      streakDays: 0 },
           ]
         : [
-            { key: "chest", label: "Chest", progress: 81, streakDays: 5 },
-            { key: "back", label: "Back", progress: 67, streakDays: 4 },
-            { key: "arms", label: "Arms", progress: 72, streakDays: 4 },
-            { key: "shoulders", label: "Shoulders", progress: 58, streakDays: 3 },
-            { key: "legs", label: "Legs", progress: 45, streakDays: 2 },
-            { key: "core", label: "Core", progress: 51, streakDays: 2 },
+            { key: "chest",     label: "Chest",     progress: v("chest",     seedMale.chest),     streakDays: 5 },
+            { key: "back",      label: "Back",      progress: v("back",      seedMale.back),      streakDays: 4 },
+            { key: "arms",      label: "Arms",      progress: v("arms",      seedMale.arms),      streakDays: 4 },
+            { key: "shoulders", label: "Shoulders", progress: v("shoulders", seedMale.shoulders), streakDays: 3 },
+            { key: "legs",      label: "Legs",      progress: v("legs",      seedMale.legs),      streakDays: 2 },
+            { key: "core",      label: "Core",      progress: v("core",      seedMale.core),      streakDays: 2 },
           ];
 
       const activeSquad = {
@@ -1029,48 +1072,144 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const user = getCurrentUser(req);
       const isFemale = user.sex === "female";
 
-      // Build a rolling 14-day-spaced list of mock scans, newest first.
-      // Real implementation will pull from a `scan` table once Take Photo lands.
-      const today = new Date();
-      const scans = [0, 1, 2, 3].map((i) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i * 14);
+      // Real scans from the `scan` table (newest first, up to 4 shown in the row).
+      const rows = db
+        .select()
+        .from(schema.scan)
+        .where(eq(schema.scan.userId, user.id))
+        .orderBy(desc(schema.scan.scannedAt))
+        .limit(8)
+        .all();
+
+      const recentScans = rows.slice(0, 4).map((r, i) => {
+        const d = new Date(r.scannedAt);
         return {
-          id: i + 1,
-          date: d.toISOString().slice(0, 10),
+          id: r.id,
+          date: r.scannedAt.slice(0, 10),
           dateLabel: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
           isLatest: i === 0,
-          // intensity tints down past scans in the UI
           intensity: 1 - i * 0.22,
+          photoUrl: `/api/progress/photo/${r.id}`,
+          silhouetteParams: safeParseProgress(r.silhouetteParams),
+          muscleEmphasis: safeParseProgress(r.muscleEmphasis),
+          buildLabel: r.buildLabel,
+          bodyFatPct: r.bodyFatPct,
+          muscleMassPct: r.muscleMassPct,
         };
       });
 
+      const latest = recentScans[0] || null;
+      const hasScan = !!latest;
+
       res.json({
-        user: {
-          name: user.name,
-          sex: user.sex,
-          isFemale,
-        },
+        user: { name: user.name, sex: user.sex, isFemale },
         intro: {
           title: "Progress",
           subtitle: "Track your transformation. See the real you evolve.",
         },
         scanHero: {
-          title: "Scan Your Physique",
-          body: "We'll turn it into your Flexin silhouette and track your progress over time.",
+          title: hasScan ? "Your Latest Scan" : "Scan Your Physique",
+          body: hasScan
+            ? "This is your Flexin silhouette, built from your last photo. Take a new one to track your progress."
+            : "We'll turn it into your Flexin silhouette and track your progress over time.",
           ctaText: "Take a photo.",
-          buttonLabel: "Take Progress Photo",
+          buttonLabel: hasScan ? "Take New Progress Photo" : "Take Progress Photo",
+          photoUrl: latest?.photoUrl ?? null,
+          silhouetteParams: latest?.silhouetteParams ?? null,
+          buildLabel: latest?.buildLabel ?? null,
+          bodyFatPct: latest?.bodyFatPct ?? null,
+          muscleMassPct: latest?.muscleMassPct ?? null,
         },
         steps: [
           { number: 1, title: "Take Photo",     blurb: "Front facing, good lighting" },
           { number: 2, title: "We Process",     blurb: "We create your silhouette" },
           { number: 3, title: "Track Progress", blurb: "See changes. Stay motivated." },
         ],
-        recentScans: scans,
+        recentScans,
+        hasScan,
       });
     } catch (e) {
       console.error("/api/progress", e);
       res.status(500).json({ error: "Failed to load progress" });
+    }
+  });
+
+  // FLEXIN: Upload + analyze a body scan photo.
+  // POST /api/progress/scan  (multipart, field=photo)
+  app.post("/api/progress/scan", (req, res) => {
+    scanPhotoUpload.single("photo")(req, res, async (err: any) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+      try {
+        const user = getCurrentUser(req);
+        const photoPath = req.file.path;
+
+        // Vision analysis (OpenAI if key set, otherwise per-photo heuristic)
+        const analysis = await analyzePhoto(
+          photoPath,
+          (user.sex as "male" | "female" | "unspecified") || "unspecified",
+        );
+
+        const now = new Date().toISOString();
+        const inserted = db
+          .insert(schema.scan)
+          .values({
+            userId: user.id,
+            photoPath,
+            scannedAt: now,
+            bodyFatPct: analysis.bodyFatPct,
+            muscleMassPct: analysis.muscleMassPct,
+            buildLabel: analysis.buildLabel,
+            silhouetteParams: JSON.stringify(analysis.silhouetteParams),
+            muscleEmphasis: JSON.stringify(analysis.muscleEmphasis),
+            rawAnalysis: JSON.stringify(analysis.raw ?? null),
+          })
+          .returning()
+          .all();
+
+        const row = inserted[0];
+        res.json({
+          ok: true,
+          source: analysis.source,
+          scan: {
+            id: row.id,
+            date: row.scannedAt.slice(0, 10),
+            photoUrl: `/api/progress/photo/${row.id}`,
+            silhouetteParams: analysis.silhouetteParams,
+            muscleEmphasis: analysis.muscleEmphasis,
+            buildLabel: analysis.buildLabel,
+            bodyFatPct: analysis.bodyFatPct,
+            muscleMassPct: analysis.muscleMassPct,
+          },
+        });
+      } catch (e: any) {
+        console.error("/api/progress/scan", e);
+        res.status(500).json({ error: e?.message || "Failed to analyze photo" });
+      }
+    });
+  });
+
+  // Serve a scan photo by id (must belong to current user)
+  app.get("/api/progress/photo/:id", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const id = parseInt(req.params.id, 10);
+      const row = db
+        .select()
+        .from(schema.scan)
+        .where(eq(schema.scan.id, id))
+        .limit(1)
+        .all()[0];
+      if (!row || row.userId !== user.id) return res.status(404).send("not found");
+      if (!fs.existsSync(row.photoPath)) return res.status(404).send("file missing");
+      const ext = path.extname(row.photoPath).toLowerCase();
+      const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      fs.createReadStream(row.photoPath).pipe(res);
+    } catch (e) {
+      res.status(500).send("error");
     }
   });
 

@@ -1,12 +1,14 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
-import silhouetteMale from "@/assets/silhouette_male.png";
-import silhouetteFemale from "@/assets/silhouette_female.png";
-import progressPhotoMale from "@/assets/progress_photo_male.png";
-import progressPhotoFemale from "@/assets/progress_photo_female.png";
+import {
+  SilhouetteSVG,
+  DEFAULT_PARAMS_MALE,
+  DEFAULT_PARAMS_FEMALE,
+  type SilhouetteParams,
+} from "@/components/SilhouetteSVG";
 
 // ── Types matching /api/progress response ─────────────────────────────────
 interface ProgressScan {
@@ -15,14 +17,31 @@ interface ProgressScan {
   dateLabel: string;
   isLatest: boolean;
   intensity: number;
+  photoUrl: string | null;
+  silhouetteParams: SilhouetteParams | null;
+  muscleEmphasis: Record<string, number> | null;
+  buildLabel: string | null;
+  bodyFatPct: number | null;
+  muscleMassPct: number | null;
 }
 
 interface ProgressPayload {
   user: { name: string; sex: string; isFemale: boolean };
   intro: { title: string; subtitle: string };
-  scanHero: { title: string; body: string; ctaText: string; buttonLabel: string };
+  scanHero: {
+    title: string;
+    body: string;
+    ctaText: string;
+    buttonLabel: string;
+    photoUrl: string | null;
+    silhouetteParams: SilhouetteParams | null;
+    buildLabel: string | null;
+    bodyFatPct: number | null;
+    muscleMassPct: number | null;
+  };
   steps: { number: number; title: string; blurb: string }[];
   recentScans: ProgressScan[];
+  hasScan: boolean;
 }
 
 interface ProgressProps {
@@ -36,14 +55,48 @@ interface ProgressProps {
 export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProfile }: ProgressProps) {
   const t = useTheme();
   const isFemale = t.name === "pink";
-  const silhouette = isFemale ? silhouetteFemale : silhouetteMale;
-  const progressPhoto = isFemale ? progressPhotoFemale : progressPhotoMale;
+  const qc = useQueryClient();
 
   const { data, isLoading } = useQuery<ProgressPayload>({
     queryKey: ["/api/progress"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 30_000,
   });
+
+  // Upload state for the Take Progress Photo flow
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const userEmail =
+    typeof window !== "undefined"
+      ? (localStorage.getItem("flexin_user_email") || "").trim()
+      : "";
+
+  async function handlePhotoSelected(file: File) {
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      const resp = await fetch("/api/progress/scan", {
+        method: "POST",
+        body: fd,
+        headers: userEmail ? { "x-user-email": userEmail } : undefined,
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || `Upload failed (${resp.status})`);
+      }
+      // Invalidate Progress + Dashboard so silhouette + muscle bars refresh
+      await qc.invalidateQueries({ queryKey: ["/api/progress"] });
+      await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    } catch (e: any) {
+      setUploadError(e?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   if (isLoading || !data) {
     return (
@@ -53,9 +106,10 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
     );
   }
 
-  // For the pink (light) theme, the silhouette PNG needs 'multiply' to show.
-  // For the blue (dark) theme, 'screen' lets the neon glow show through.
-  const silhouetteBlend: React.CSSProperties["mixBlendMode"] = isFemale ? "multiply" : "screen";
+  // Silhouette params for the hero — real if user has scanned, otherwise sex default
+  const heroParams: SilhouetteParams =
+    data.scanHero.silhouetteParams ||
+    (isFemale ? DEFAULT_PARAMS_FEMALE : DEFAULT_PARAMS_MALE);
 
   return (
     <div style={{ minHeight: "100vh", background: t.bg, color: t.text, paddingBottom: 110, overflowX: "hidden" }}>
@@ -111,19 +165,29 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
         }}>
           {/* Photo + arrow + silhouette */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", marginBottom: 18 }}>
-            {/* Real photo tile */}
+            {/* Photo tile */}
             <div style={{
               borderRadius: 14,
               overflow: "hidden",
               aspectRatio: "3 / 4",
-              background: "#0a0a0a",
+              background: isFemale ? `linear-gradient(180deg, ${t.bgInput}, ${t.bgElevated})` : "#0a0a0a",
               border: `1px solid ${t.border}`,
+              display: "grid", placeItems: "center",
+              color: t.textDim, position: "relative",
             }}>
-              <img
-                src={progressPhoto}
-                alt="Your photo"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
+              {data.scanHero.photoUrl ? (
+                <img
+                  src={data.scanHero.photoUrl}
+                  alt="Your photo"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              ) : (
+                <div style={{ textAlign: "center", padding: 10, fontSize: 11, lineHeight: 1.4 }}>
+                  <CameraIcon color={t.textMuted} size={28} />
+                  <div style={{ marginTop: 8, color: t.textMuted, fontWeight: 700 }}>No photo yet</div>
+                  <div style={{ color: t.textDim, marginTop: 2 }}>Take one to begin</div>
+                </div>
+              )}
             </div>
 
             {/* Arrow */}
@@ -136,7 +200,7 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
               <ArrowRightIcon color={t.accent} />
             </div>
 
-            {/* Silhouette tile (grid lines + glow) */}
+            {/* Silhouette tile (grid lines + glow). Parametric SVG \u2014 reflects the user's photo. */}
             <div style={{
               borderRadius: 14,
               overflow: "hidden",
@@ -158,14 +222,14 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
                 backgroundSize: "32px 32px",
                 pointerEvents: "none",
               }} />
-              <img
-                src={silhouette}
-                alt="Flexin silhouette"
+              <SilhouetteSVG
+                params={heroParams}
+                isFemale={isFemale}
+                accent={t.accent}
                 style={{
-                  width: "82%", height: "100%", objectFit: "contain",
-                  mixBlendMode: silhouetteBlend,
+                  width: "92%", height: "100%",
+                  filter: `drop-shadow(0 0 10px ${t.accentGlow})`,
                   position: "relative",
-                  filter: `drop-shadow(0 0 14px ${t.accentGlow})`,
                 }}
               />
             </div>
@@ -179,29 +243,81 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
           </div>
           <div style={{
             textAlign: "center", fontSize: 14, color: t.textMuted, lineHeight: 1.5,
-            padding: "0 6px", marginBottom: 16,
+            padding: "0 6px", marginBottom: data.hasScan ? 10 : 16,
           }}>
-            <span style={{ color: t.accent, fontWeight: 700 }}>{data.scanHero.ctaText}</span>{" "}
+            {!data.hasScan && (
+              <>
+                <span style={{ color: t.accent, fontWeight: 700 }}>{data.scanHero.ctaText}</span>{" "}
+              </>
+            )}
             {data.scanHero.body}
           </div>
 
+          {/* Body comp summary (if we have a scan) */}
+          {data.hasScan && (
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8,
+              padding: "10px 0 14px",
+              borderTop: `1px solid ${t.border}`,
+              marginBottom: 10,
+            }}>
+              <StatPill t={t} label="Build" value={(data.scanHero.buildLabel || "—").toUpperCase()} />
+              <StatPill t={t} label="Body Fat" value={fmtPct(data.scanHero.bodyFatPct)} />
+              <StatPill t={t} label="Muscle" value={fmtScore(data.scanHero.muscleMassPct)} />
+            </div>
+          )}
+
           {/* Big CTA */}
           <button
-            onClick={() => {/* upload coming soon */}}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
             style={{
               width: "100%",
               background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
               color: t.accentText, border: "none",
               borderRadius: 22, padding: "16px 18px",
               fontSize: 15, fontWeight: 800, letterSpacing: 0.4,
-              cursor: "pointer",
+              cursor: uploading ? "wait" : "pointer",
+              opacity: uploading ? 0.7 : 1,
               boxShadow: `0 8px 28px ${t.accentGlow}`,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             }}
           >
-            <CameraIcon color={t.accentText} />
-            {data.scanHero.buttonLabel}
+            {uploading ? (
+              <>
+                <Spinner color={t.accentText} />
+                Analyzing your photo…
+              </>
+            ) : (
+              <>
+                <CameraIcon color={t.accentText} />
+                {data.scanHero.buttonLabel}
+              </>
+            )}
           </button>
+
+          {/* Hidden file input \u2014 camera capture on mobile, file picker on desktop */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handlePhotoSelected(f);
+              e.target.value = ""; // reset so picking the same file again still fires
+            }}
+          />
+
+          {uploadError && (
+            <div style={{
+              marginTop: 10, fontSize: 12, color: "#ff6b6b",
+              textAlign: "center", fontWeight: 600,
+            }}>
+              {uploadError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -215,16 +331,8 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
           display: "grid",
           gridTemplateColumns: "1fr 1fr 1fr",
         }}>
-          {data.steps.map((step, i) => (
-            <React.Fragment key={step.number}>
-              {i > 0 && (
-                <div style={{
-                  width: 1, background: t.border, alignSelf: "stretch", marginInline: 6,
-                  display: "none", // dividers are visually integrated in mockup; using gap instead
-                }} />
-              )}
-              <StepCard t={t} step={step} />
-            </React.Fragment>
+          {data.steps.map((step) => (
+            <StepCard key={step.number} t={t} step={step} />
           ))}
         </div>
       </div>
@@ -244,22 +352,29 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
           </button>
         </div>
 
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 8,
-        }}>
-          {data.recentScans.map((scan) => (
-            <ScanTile
-              key={scan.id}
-              t={t}
-              scan={scan}
-              silhouette={silhouette}
-              silhouetteBlend={silhouetteBlend}
-              isFemale={isFemale}
-            />
-          ))}
-        </div>
+        {data.recentScans.length === 0 ? (
+          <div style={{
+            background: t.bgElevated, border: `1px dashed ${t.border}`,
+            borderRadius: 16, padding: "22px 16px", textAlign: "center",
+            color: t.textMuted, fontSize: 13, lineHeight: 1.5,
+          }}>
+            Your scans will appear here. Take your first photo above to start tracking.
+          </div>
+        ) : (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${Math.max(data.recentScans.length, 4)}, 1fr)`,
+            gap: 8,
+          }}>
+            {data.recentScans.map((scan) => (
+              <ScanTile key={scan.id} t={t} scan={scan} isFemale={isFemale} />
+            ))}
+            {/* Pad empty slots so the row stays 4-wide while we don't have 4 scans yet */}
+            {Array.from({ length: Math.max(0, 4 - data.recentScans.length) }).map((_, i) => (
+              <EmptyScanSlot key={`empty-${i}`} t={t} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ═════════════════════ BOTTOM NAV ═════════════════════ */}
@@ -273,6 +388,27 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
       />
     </div>
   );
+}
+
+// ════════════════════════════ STAT PILL ════════════════════════════
+function StatPill({ t, label, value }: { t: any; label: string; value: string }) {
+  return (
+    <div style={{
+      textAlign: "center", padding: "6px 4px",
+    }}>
+      <div style={{ fontSize: 10, color: t.textDim, fontWeight: 700, letterSpacing: 0.8 }}>{label.toUpperCase()}</div>
+      <div style={{ fontSize: 14, color: t.text, fontWeight: 800, marginTop: 2 }}>{value}</div>
+    </div>
+  );
+}
+
+function fmtPct(n: number | null) {
+  if (n == null || isNaN(n)) return "—";
+  return `${Math.round(n)}%`;
+}
+function fmtScore(n: number | null) {
+  if (n == null || isNaN(n)) return "—";
+  return `${Math.round(n)}`;
 }
 
 // ════════════════════════════ STEP CARD ════════════════════════════
@@ -300,11 +436,13 @@ function StepCard({ t, step }: { t: any; step: { number: number; title: string; 
 }
 
 // ════════════════════════════ SCAN TILE ════════════════════════════
-function ScanTile({ t, scan, silhouette, silhouetteBlend, isFemale }: {
-  t: any; scan: ProgressScan; silhouette: string;
-  silhouetteBlend: React.CSSProperties["mixBlendMode"]; isFemale: boolean;
-}) {
+function ScanTile({ t, scan, isFemale }: { t: any; scan: ProgressScan; isFemale: boolean }) {
   const latest = scan.isLatest;
+  const params = scan.silhouetteParams || (isFemale ? DEFAULT_PARAMS_FEMALE : DEFAULT_PARAMS_MALE);
+
+  // Past scans render dimmer
+  const dim = latest ? 1 : 0.55 + scan.intensity * 0.2;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
       <div style={{
@@ -329,17 +467,14 @@ function ScanTile({ t, scan, silhouette, silhouetteBlend, isFemale }: {
             zIndex: 2,
           }}>Latest</div>
         )}
-        <img
-          src={silhouette}
-          alt={scan.dateLabel}
+        <SilhouetteSVG
+          params={params}
+          isFemale={isFemale}
+          accent={t.accent}
           style={{
-            width: "80%", height: "100%", objectFit: "contain",
-            mixBlendMode: silhouetteBlend,
-            position: "relative",
-            opacity: latest ? 1 : 0.55 + scan.intensity * 0.2,
-            filter: latest
-              ? `drop-shadow(0 0 10px ${t.accentGlow})`
-              : isFemale ? "grayscale(0.3)" : "grayscale(0.3) brightness(0.8)",
+            width: "90%", height: "100%",
+            opacity: dim,
+            filter: latest ? `drop-shadow(0 0 10px ${t.accentGlow})` : "none",
           }}
         />
       </div>
@@ -348,6 +483,22 @@ function ScanTile({ t, scan, silhouette, silhouetteBlend, isFemale }: {
         color: latest ? t.accent : t.textMuted,
         textAlign: "center",
       }}>{scan.dateLabel}</div>
+    </div>
+  );
+}
+
+function EmptyScanSlot({ t }: { t: any }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+      <div style={{
+        aspectRatio: "3 / 4",
+        borderRadius: 12,
+        border: `1px dashed ${t.border}`,
+        background: "transparent",
+        display: "grid", placeItems: "center",
+        color: t.textDim, fontSize: 18, fontWeight: 800,
+      }}>+</div>
+      <div style={{ fontSize: 11, color: t.textDim, textAlign: "center" }}>Empty</div>
     </div>
   );
 }
@@ -476,6 +627,16 @@ function PersonIcon({ color }: { color: string }) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="8" r="4" stroke={color} strokeWidth="1.8" />
       <path d="M4 21c0-4 4-7 8-7s8 3 8 7" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+function Spinner({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2.4" strokeOpacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke={color} strokeWidth="2.4" strokeLinecap="round">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite" />
+      </path>
     </svg>
   );
 }
