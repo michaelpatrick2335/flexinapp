@@ -1,5 +1,49 @@
+import React from "react";
 import { useTheme } from "@/lib/ThemeProvider";
 import flexinLogo from "@/assets/flexin_logo.jpeg";
+
+// ── Feature icons (match mockup: stylized glowing accent-color line art) ──
+function GroupIcon({ color }: { color: string }) {
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="11" cy="10" r="4" fill={color} />
+      <circle cx="21" cy="10" r="4" fill={color} />
+      <path d="M4 26c0-4 3-7 7-7s7 3 7 7" stroke={color} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      <path d="M14 26c0-4 3-7 7-7s7 3 7 7" stroke={color} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+function DnaIcon({ color }: { color: string }) {
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 4c0 6 12 6 12 12s-12 6-12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <path d="M22 4c0 6-12 6-12 12s12 6 12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <line x1="11" y1="9" x2="21" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="11" y1="23" x2="21" y2="23" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="13" y1="13" x2="19" y2="13" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="13" y1="19" x2="19" y2="19" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BicepIcon({ color }: { color: string }) {
+  // Dumbbell icon — universally recognized for muscle/strength training
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* End cap left (outer) */}
+      <rect x="2" y="11" width="3" height="10" rx="1" fill={color} />
+      {/* End cap left (inner, smaller) */}
+      <rect x="5.5" y="9" width="3.5" height="14" rx="1" fill={color} />
+      {/* Bar */}
+      <rect x="9" y="14" width="14" height="4" fill={color} />
+      {/* End cap right (inner) */}
+      <rect x="23" y="9" width="3.5" height="14" rx="1" fill={color} />
+      {/* End cap right (outer) */}
+      <rect x="27" y="11" width="3" height="10" rx="1" fill={color} />
+    </svg>
+  );
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Screen 1: Welcome
@@ -86,19 +130,19 @@ export function Welcome({ onGetStarted, onLogIn, onTrainerSignup }: WelcomeProps
         <FeatureCard
           title="Accountability Groups"
           body="Real people. Real support. Stay consistent together."
-          icon="👥"
+          icon={<GroupIcon color={t.accent} />}
           theme={t}
         />
         <FeatureCard
           title="Scan Body Metrics"
           body="Advanced AI scans. Track what matters."
-          icon="🧬"
+          icon={<DnaIcon color={t.accent} />}
           theme={t}
         />
         <FeatureCard
           title="Advance Muscle Tracker"
           body="Track every muscle. See real progress."
-          icon="💪"
+          icon={<BicepIcon color={t.accent} />}
           theme={t}
         />
       </div>
@@ -148,7 +192,7 @@ function FeatureCard({
 }: {
   title: string;
   body: string;
-  icon: string;
+  icon: React.ReactNode;
   theme: ReturnType<typeof useTheme>;
 }) {
   return (
@@ -166,7 +210,7 @@ function FeatureCard({
         gap: 8,
       }}
     >
-      <div style={{ fontSize: "1.6rem", filter: `drop-shadow(0 0 8px ${theme.accentGlow})` }}>
+      <div style={{ filter: `drop-shadow(0 0 8px ${theme.accentGlow})`, lineHeight: 0 }}>
         {icon}
       </div>
       <div
