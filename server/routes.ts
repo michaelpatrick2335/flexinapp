@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import { analyzePhoto } from "./photoAnalysis";
 import { generateBodyRender } from "./renderGenerator";
+import { evaluateProgression, computeFitness } from "./progression";
 
 // ── Voice cue storage ─────────────────────────────────────────────────────
 const VOICE_DIR = path.join(process.cwd(), "voice-cues");
@@ -693,7 +694,11 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     try {
       const user = getCurrentUser(req);
       const isFemale = user.sex === "female";
-      const formLevel = (user as any).formLevel || 9;
+      // Pull real fitness numbers from logged workouts (last 30 days).
+      const fitness = computeFitness(user.id);
+      // Prefer the user's stored formLevel (which we update on each workout
+      // log), but fall back to the live-computed one if it's missing.
+      const formLevel = (user as any).formLevel || Math.max(1, Math.min(20, 1 + Math.round((fitness.score / 100) * 19)));
       const formRank =
         formLevel >= 19 ? "MAX"
         : formLevel >= 13 ? "FORGING"
@@ -803,12 +808,15 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const xpToNext = 3_000;
       const weeklyScanDaysLeft = 2;
 
-      // Monthly stats strip.
+      // Monthly stats strip — driven by real workout history (last 30 days).
+      // Falls back to seed values when the user has no workouts yet so the
+      // dashboard never looks empty on first load.
+      const hasWorkouts = fitness.workouts30d > 0;
       const monthStats = {
-        trainingDays: 28,
-        totalWorkouts: 42,
-        caloriesBurned: 12_450,
-        avgFormScore: 85,
+        trainingDays: hasWorkouts ? fitness.trainingDays30d : 0,
+        totalWorkouts: hasWorkouts ? fitness.workouts30d : 0,
+        caloriesBurned: hasWorkouts ? fitness.caloriesBurned30d : 0,
+        avgFormScore: hasWorkouts ? Math.max(50, Math.min(99, 60 + Math.round(fitness.score * 0.35))) : 0,
         unreadAlerts: 3,
       };
 
@@ -979,7 +987,30 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         });
       }
 
-      res.json({ ok: true, workout: workoutRow, exercises: selected, energyDelta });
+      // Re-evaluate the user's fitness progression now that a new workout
+      // is on the books. This may bump formLevel and auto-upgrade their
+      // avatarBodyType if they crossed a tier threshold.
+      const prog = evaluateProgression(
+        user.id,
+        (user as any).sex || "male",
+        (user as any).avatarBodyType || null,
+      );
+      const patch: any = { formLevel: prog.formLevel };
+      if (prog.upgraded) patch.avatarBodyType = prog.avatarBodyType;
+      storage.updateUser(user.id, patch);
+
+      res.json({
+        ok: true,
+        workout: workoutRow,
+        exercises: selected,
+        energyDelta,
+        progression: {
+          formLevel: prog.formLevel,
+          avatarBodyType: prog.avatarBodyType,
+          avatarUpgraded: prog.upgraded,
+          fitnessScore: prog.fitness.score,
+        },
+      });
     } catch (e) {
       console.error("/api/workout", e);
       res.status(500).json({ error: "Failed to log workout" });
