@@ -129,6 +129,39 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // Create or upsert a Flexin account from the signup flow.
+  // Body: { name, email, sex, themeOverride?, isTrainer? }
+  // - Creates a new user if email is new.
+  // - Updates name/sex/themeOverride/isTrainer if email already exists.
+  // - Sets the user as the active record so /api/user returns them next.
+  app.post("/api/signup", (req, res) => {
+    try {
+      const { name, email, sex, themeOverride, isTrainer } = req.body as {
+        name?: string; email?: string; sex?: string;
+        themeOverride?: string | null; isTrainer?: boolean;
+      };
+      const emailNorm = (email || "").trim().toLowerCase();
+      const nameNorm = (name || "").trim();
+      if (!emailNorm) return res.status(400).json({ error: "Email required" });
+      if (!nameNorm) return res.status(400).json({ error: "Name required" });
+
+      // Get or create the user record for this email
+      const user = storage.getOrCreateUser(emailNorm);
+
+      // Apply signup fields
+      const updated = storage.updateUser(user.id, {
+        name: nameNorm,
+        sex: (sex as any) || "unspecified",
+        themeOverride: themeOverride || null,
+        isTrainer: !!isTrainer,
+      } as any);
+      res.json(updated);
+    } catch (e) {
+      console.error("/api/signup", e);
+      res.status(500).json({ error: "Signup failed" });
+    }
+  });
+
   // Update user profile (name, tier on onboarding)
   app.patch("/api/user", (req, res) => {
     try {

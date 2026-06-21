@@ -4,7 +4,7 @@ import { useHashLocation } from "wouter/use-hash-location";
 import { useQuery } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { Clipboard } from "@capacitor/clipboard";
-import { queryClient, getQueryFn, getUserEmail, clearUserEmail, hasPickedExperience } from "@/lib/queryClient";
+import { queryClient, getQueryFn, getUserEmail, setUserEmail, clearUserEmail, hasPickedExperience } from "@/lib/queryClient";
 import { clearCustomExercisesForCurrentUser } from "@/lib/custom-breath-exercises";
 import { Welcome } from "@/pages/Welcome";
 import { CreateAccount } from "@/pages/CreateAccount";
@@ -187,15 +187,37 @@ function AppContent() {
         );
       }
 
-      // signupStep === "sex" — Screen 4
+      // signupStep === "sex" — Screen 4. On continue, submit the buffered
+      // signup data (name + email + sex + themeOverride + isTrainer) to the
+      // server, persist the user's email for x-user-email header, and trigger
+      // a /api/user refetch so the app advances to Home with the real name.
       return (
         <SexSelect
-          onContinue={() => {
-            // TODO: Submit signup to server (name/email/sex/themeOverride/isTrainer)
-            // For now, fall through to the legacy onboarding so dev can keep moving.
-            // The Welcome→CreateAccount→NameEmail→SexSelect chain is now complete on the UI side.
-            setAuthMode("login");
-            setSignupStep("create");
+          onContinue={async ({ sex, themeOverride }) => {
+            try {
+              const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinapp.com" : "";
+              const r = await fetch(`${apiBase}/api/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: signupName,
+                  email: signupEmail,
+                  sex,
+                  themeOverride,
+                  isTrainer: authMode === "trainer",
+                }),
+              });
+              if (!r.ok) throw new Error(`signup ${r.status}`);
+              // Remember the email so future /api requests include x-user-email.
+              setUserEmail(signupEmail);
+              // Force /api/user refetch — App will re-render and land on Home.
+              queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+            } catch (err) {
+              console.error("[flexin] signup failed", err);
+              // Fall back to login so the user isn't stranded.
+              setAuthMode("login");
+              setSignupStep("create");
+            }
           }}
           onBack={() => setSignupStep("name-email")}
         />

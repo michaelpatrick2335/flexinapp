@@ -234,6 +234,9 @@ function StatCard({ theme: t, label, value, sub, onClick }: { theme: any; label:
 }
 
 function MuscleRow({ theme: t, label, progress, streakDays }: { theme: any; label: string; progress: number; streakDays: number }) {
+  // streakDays still arrives from /api/dashboard but isn't displayed here
+  // anymore — the user requested the % value instead of "🔥 Nd".
+  void streakDays;
   return (
     <div
       style={{
@@ -243,9 +246,7 @@ function MuscleRow({ theme: t, label, progress, streakDays }: { theme: any; labe
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: 11, color: streakDays > 0 ? t.accent : t.textMuted, fontWeight: 700 }}>
-          {streakDays > 0 ? `🔥 ${streakDays}d` : "—"}
-        </span>
+        <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, letterSpacing: 0.3 }}>{progress}%</span>
       </div>
       <div style={{ height: 6, background: t.bgInput, borderRadius: 3, overflow: "hidden" }}>
         <div
