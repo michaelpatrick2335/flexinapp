@@ -25,3 +25,8 @@ xcuserdata/
 android/.gradle/
 android/app/build/
 android/build/
+
+# Per-user uploaded avatars (runtime data)
+profile-pics/
+# Rendered scan body images (runtime data)
+renders/
