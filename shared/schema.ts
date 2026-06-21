@@ -46,6 +46,10 @@ export const user = sqliteTable("user", {
   // dashboard stats, default volumes, calorie/protein guidance.
   age: integer("age"),                // years
   weightLbs: real("weight_lbs"),      // pounds
+
+  // Body-type avatar picked during onboarding (e.g. "male_3_athletic",
+  // "female_5_muscular"). Drives the hero illustration shown on Home.
+  avatarBodyType: text("avatar_body_type"),
 });
 
 export const insertUserSchema = createInsertSchema(user).omit({ id: true });

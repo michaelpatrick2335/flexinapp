@@ -5,6 +5,7 @@ import { getQueryFn } from "@/lib/queryClient";
 import silhouetteMale from "@/assets/silhouette_male.png";
 import silhouetteFemale from "@/assets/silhouette_female.png";
 import flexinLogo from "@/assets/flexin_logo.png";
+import { avatarImageFor } from "@/lib/avatars";
 
 // ── Types matching /api/dashboard response ────────────────────────────────
 interface DashboardPayload {
@@ -13,6 +14,7 @@ interface DashboardPayload {
     formLevel: number; formRank: string;
     isPremium: boolean;
     xp: number; xpToNext: number; streakDays: number;
+    avatarBodyType?: string | null;
   };
   muscleGroups: { key: string; label: string; progress: number; streakDays: number }[];
   bodyDeltas: { key: string; label: string; delta: number; isOverall?: boolean }[];
@@ -47,7 +49,7 @@ interface HomeProps {
 export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed, onOpenProgress }: HomeProps) {
   const t = useTheme();
   const isFemale = t.name === "pink";
-  const silhouette = isFemale ? silhouetteFemale : silhouetteMale;
+  const defaultSilhouette = isFemale ? silhouetteFemale : silhouetteMale;
 
   const { data, isLoading } = useQuery<DashboardPayload>({
     queryKey: ["/api/dashboard"],
@@ -65,6 +67,10 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 
   const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, squadFeed, evolutionTimeline } = data;
   const xpPct = Math.min(100, Math.round((user.xp / user.xpToNext) * 100));
+  // Resolve the chosen body-type avatar; fall back to legacy silhouette if unset.
+  const silhouette = user.avatarBodyType
+    ? avatarImageFor(user.avatarBodyType, (user.sex === "female" ? "female" : "male"))
+    : defaultSilhouette;
 
   return (
     <div style={{ minHeight: "100vh", background: t.bg, color: t.text, paddingBottom: 110, overflowX: "hidden" }}>

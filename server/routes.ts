@@ -168,10 +168,11 @@ export async function registerRoutes(httpServer: Server, app: Express) {
   // - Sets the user as the active record so /api/user returns them next.
   app.post("/api/signup", (req, res) => {
     try {
-      const { name, email, sex, themeOverride, isTrainer, age, weightLbs } = req.body as {
+      const { name, email, sex, themeOverride, isTrainer, age, weightLbs, avatarBodyType } = req.body as {
         name?: string; email?: string; sex?: string;
         themeOverride?: string | null; isTrainer?: boolean;
         age?: number | null; weightLbs?: number | null;
+        avatarBodyType?: string | null;
       };
       const emailNorm = (email || "").trim().toLowerCase();
       const nameNorm = (name || "").trim();
@@ -191,6 +192,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         isTrainer: !!isTrainer,
         age: ageNum,
         weightLbs: weightNum,
+        avatarBodyType: avatarBodyType || null,
       } as any);
       res.json(updated);
     } catch (e) {
@@ -828,6 +830,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           isPremium: !!user.isPremium,
           age: (user as any).age ?? null,
           weightLbs: (user as any).weightLbs ?? null,
+          avatarBodyType: (user as any).avatarBodyType ?? null,
           xp,
           xpToNext,
           streakDays,

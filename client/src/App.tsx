@@ -10,6 +10,7 @@ import { Welcome } from "@/pages/Welcome";
 import { CreateAccount } from "@/pages/CreateAccount";
 import { NameEmail } from "@/pages/NameEmail";
 import { SexSelect } from "@/pages/SexSelect";
+import { AvatarSelect } from "@/pages/AvatarSelect";
 import { Home } from "@/pages/Home";
 import { LogWorkout } from "@/pages/LogWorkout";
 import { SelectExercises } from "@/pages/SelectExercises";
@@ -36,7 +37,7 @@ type AuthMode = "welcome" | "signup" | "login" | "trainer";
 //   "create"      → Screen 2 (Create Account: Apple/Google/Email)
 //   "name-email"  → Screen 3 (Name & Email)
 //   "sex"         → Screen 4 (Sex Select)
-type SignupStep = "create" | "name-email" | "sex";
+type SignupStep = "create" | "name-email" | "sex" | "avatar";
 
 function AppContent() {
   // Local flag: once user taps a level, go straight to Dashboard — no re-fetch needed
@@ -50,6 +51,10 @@ function AppContent() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupAge, setSignupAge] = useState<number | null>(null);
   const [signupWeight, setSignupWeight] = useState<number | null>(null);
+  // Buffered sex / theme — picked at SexSelect, submitted at Avatar step
+  const [signupSex, setSignupSex] = useState<"male" | "female" | null>(null);
+  const [signupThemeOverride, setSignupThemeOverride] = useState<string | null>(null);
+  const [signupAvatarId, setSignupAvatarId] = useState<string | null>(null);
 
   // Capture ?join=CODE from URL once on mount and stash so signup/login can auto-join
   useEffect(() => {
@@ -200,13 +205,29 @@ function AppContent() {
         );
       }
 
-      // signupStep === "sex" — Screen 4. On continue, submit the buffered
-      // signup data (name + email + sex + themeOverride + isTrainer) to the
-      // server, persist the user's email for x-user-email header, and trigger
-      // a /api/user refetch so the app advances to Home with the real name.
+      if (signupStep === "sex") {
+        // Screen 4: pick sex + theme, buffer them, then advance to Avatar step.
+        return (
+          <SexSelect
+            onContinue={({ sex, themeOverride }) => {
+              setSignupSex(sex);
+              setSignupThemeOverride(themeOverride ?? null);
+              setSignupStep("avatar");
+            }}
+            onBack={() => setSignupStep("name-email")}
+          />
+        );
+      }
+
+      // signupStep === "avatar" — Screen 5. Pick body-type avatar, then
+      // submit the full buffered signup payload (name + email + age + weight
+      // + sex + themeOverride + avatarBodyType + isTrainer) to the server.
       return (
-        <SexSelect
-          onContinue={async ({ sex, themeOverride }) => {
+        <AvatarSelect
+          sex={signupSex ?? "male"}
+          initialAvatarId={signupAvatarId}
+          onContinue={async (avatarId) => {
+            setSignupAvatarId(avatarId);
             try {
               const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinapp.com" : "";
               const r = await fetch(`${apiBase}/api/signup`, {
@@ -215,26 +236,24 @@ function AppContent() {
                 body: JSON.stringify({
                   name: signupName,
                   email: signupEmail,
-                  sex,
-                  themeOverride,
+                  sex: signupSex,
+                  themeOverride: signupThemeOverride,
                   isTrainer: authMode === "trainer",
                   age: signupAge,
                   weightLbs: signupWeight,
+                  avatarBodyType: avatarId,
                 }),
               });
               if (!r.ok) throw new Error(`signup ${r.status}`);
-              // Remember the email so future /api requests include x-user-email.
               setUserEmail(signupEmail);
-              // Force /api/user refetch — App will re-render and land on Home.
               queryClient.invalidateQueries({ queryKey: ["/api/user"] });
             } catch (err) {
               console.error("[flexin] signup failed", err);
-              // Fall back to login so the user isn't stranded.
               setAuthMode("login");
               setSignupStep("create");
             }
           }}
-          onBack={() => setSignupStep("name-email")}
+          onBack={() => setSignupStep("sex")}
         />
       );
     }
