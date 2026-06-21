@@ -1,6 +1,6 @@
 import React from "react";
 import { useTheme } from "@/lib/ThemeProvider";
-import flexinLogo from "@/assets/flexin_logo.jpeg";
+import flexinLogo from "@/assets/flexin_logo.png";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Screen 2: Create Account
@@ -84,12 +84,14 @@ export function CreateAccount({
         <img
           src={flexinLogo}
           alt="Flexin"
-          className="flexin-logo-tint"
           style={{
             width: "min(48vw, 220px)",
             height: "auto",
             display: "inline-block",
-            mixBlendMode: t.name === "blue" ? "screen" : "multiply",
+            filter:
+              t.name === "pink"
+                ? `drop-shadow(0 0 14px ${t.accentGlow}) brightness(0) saturate(100%) invert(38%) sepia(91%) saturate(2200%) hue-rotate(316deg) brightness(101%) contrast(101%)`
+                : `drop-shadow(0 0 14px ${t.accentGlow})`,
           }}
         />
       </div>

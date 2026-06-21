@@ -1,6 +1,6 @@
 import React from "react";
 import { useTheme } from "@/lib/ThemeProvider";
-import flexinLogo from "@/assets/flexin_logo.jpeg";
+import flexinLogo from "@/assets/flexin_logo.png";
 
 // ── Feature icons (match mockup: stylized glowing accent-color line art) ──
 function GroupIcon({ color }: { color: string }) {
@@ -85,14 +85,17 @@ export function Welcome({ onGetStarted, onLogIn, onTrainerSignup }: WelcomeProps
         <img
           src={flexinLogo}
           alt="Flexin"
-          className="flexin-logo-tint"
           style={{
             width: "min(70vw, 320px)",
             height: "auto",
             display: "inline-block",
-            // Make the white logo blend onto the dark/light bg by using
-            // mix-blend-mode + theme-tinted glow.
-            mixBlendMode: t.name === "blue" ? "screen" : "multiply",
+            // Logo is a transparent-PNG white wordmark. On the pink theme we
+            // tint it to the accent color so it doesn't get lost on the light
+            // background. On dark themes the white wordmark stands on its own.
+            filter:
+              t.name === "pink"
+                ? `drop-shadow(0 0 18px ${t.accentGlow}) brightness(0) saturate(100%) invert(38%) sepia(91%) saturate(2200%) hue-rotate(316deg) brightness(101%) contrast(101%)`
+                : `drop-shadow(0 0 18px ${t.accentGlow})`,
           }}
         />
       </div>
