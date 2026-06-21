@@ -703,14 +703,17 @@ function Spinner({ color }: { color: string }) {
 }
 
 // Bold filled dumbbell for the centre FAB on the bottom nav.
-function DumbbellGlyph({ color, size = 26 }: { color: string; size?: number }) {
+function DumbbellGlyph({ color, size = 28 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <rect x="2"  y="11" width="4" height="10" rx="1.5" fill={color} />
-      <rect x="26" y="11" width="4" height="10" rx="1.5" fill={color} />
-      <rect x="6"  y="13" width="3" height="6"  rx="1"   fill={color} />
-      <rect x="23" y="13" width="3" height="6"  rx="1"   fill={color} />
-      <rect x="9"  y="14" width="14" height="4" rx="1"   fill={color} />
+      {/* Outer plates */}
+      <rect x="1"  y="8"  width="4" height="16" rx="1.2" fill={color} />
+      <rect x="27" y="8"  width="4" height="16" rx="1.2" fill={color} />
+      {/* Inner plates */}
+      <rect x="6"  y="6"  width="5" height="20" rx="1.2" fill={color} />
+      <rect x="21" y="6"  width="5" height="20" rx="1.2" fill={color} />
+      {/* Bar */}
+      <rect x="11" y="14" width="10" height="4"  rx="0.8" fill={color} />
     </svg>
   );
 }
