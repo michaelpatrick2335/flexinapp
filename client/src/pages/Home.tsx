@@ -4,6 +4,7 @@ import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn } from "@/lib/queryClient";
 import silhouetteMale from "@/assets/silhouette_male.png";
 import silhouetteFemale from "@/assets/silhouette_female.png";
+import flexinLogo from "@/assets/flexin_logo.png";
 
 // ── Types matching /api/dashboard response ────────────────────────────────
 interface DashboardPayload {
@@ -125,24 +126,37 @@ function HeroSection({
   return (
     <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 18, minHeight: 580, overflow: "hidden" }}>
 
-      {/* Background silhouette, centered, large */}
+      {/* Background silhouette, centered, large.
+          The source PNG has a dark navy background baked in, so we blend with
+          'screen' which turns the dark areas transparent and lets the neon
+          glow lines show through against the page background. */}
       <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", pointerEvents: "none" }}>
         <img
           src={silhouette}
           alt={isFemale ? "Female muscle map" : "Male muscle map"}
           style={{
             height: 460, marginTop: 60, objectFit: "contain",
-            filter: `drop-shadow(0 0 24px ${t.accentGlow}) drop-shadow(0 0 50px ${t.accentGlow})`,
+            mixBlendMode: "screen",
             opacity: 0.95,
           }}
         />
       </div>
 
-      {/* Top row: flexin+ logo / bell + profile */}
+      {/* Top row: flexin+ wordmark / bell + profile */}
       <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px" }}>
-        <div style={{ fontSize: 28, fontWeight: 700, fontStyle: "italic", letterSpacing: -0.5, color: t.text }}>
-          flexin
-          <span style={{ color: t.accent, marginLeft: 2 }}>+</span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
+          <img
+            src={flexinLogo}
+            alt="flexin"
+            style={{
+              height: 26, width: "auto", display: "block",
+              filter:
+                t.name === "pink"
+                  ? `drop-shadow(0 0 10px ${t.accentGlow}) brightness(0) saturate(100%) invert(38%) sepia(91%) saturate(2200%) hue-rotate(316deg) brightness(101%) contrast(101%)`
+                  : `drop-shadow(0 0 10px ${t.accentGlow})`,
+            }}
+          />
+          <span style={{ fontSize: 22, fontWeight: 700, color: t.accent, lineHeight: 1, textShadow: `0 0 10px ${t.accentGlow}`, marginLeft: 2 }}>+</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <button
@@ -341,10 +355,11 @@ function EvolutionCard({ t, timeline, silhouette, onOpenProgress }: {
                   maxHeight: "100%",
                   maxWidth: "100%",
                   objectFit: "contain",
-                  opacity: isCurrent ? 1 : 0.25 + w.intensity * 0.15,
+                  mixBlendMode: "screen",
+                  opacity: isCurrent ? 1 : 0.18 + w.intensity * 0.18,
                   filter: isCurrent
-                    ? `drop-shadow(0 0 6px ${t.accentGlow}) drop-shadow(0 0 12px ${t.accentGlow})`
-                    : "grayscale(0.6) brightness(0.7)",
+                    ? "none"
+                    : "grayscale(0.4) brightness(0.75)",
                 }}
               />
             </div>
@@ -378,28 +393,26 @@ function EvolutionCard({ t, timeline, silhouette, onOpenProgress }: {
 // ════════════════════════════ MONTH STATS ════════════════════════════
 function MonthStatsCard({ t, stats }: { t: any; stats: DashboardPayload["monthStats"] }) {
   const items = [
-    { icon: <CalendarIcon color={t.accent} size={18} />, label: "TRAINING DAYS",    value: stats.trainingDays.toString(),       sub: "This month" },
-    { icon: <DumbbellIcon color={t.accent} size={18} />, label: "TOTAL WORKOUTS",   value: stats.totalWorkouts.toString(),      sub: "This month" },
-    { icon: <FlameIcon color={t.accent} size={18} />,    label: "CALORIES BURNED",  value: stats.caloriesBurned.toLocaleString(), sub: "This month" },
-    { icon: <ChartIcon color={t.accent} size={18} />,    label: "AVG. FORM SCORE",  value: stats.avgFormScore.toString(),       sub: "This month" },
+    { icon: <CalendarIcon color={t.accent} size={20} />, label: "TRAINING DAYS",  value: stats.trainingDays.toString(),  sub: "This month" },
+    { icon: <DumbbellIcon color={t.accent} size={20} />, label: "TOTAL WORKOUTS", value: stats.totalWorkouts.toString(), sub: "This month" },
   ];
   return (
     <div style={{ padding: "12px 14px 0" }}>
       <div style={{
         background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 16,
-        padding: "14px 8px",
-        display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4,
+        padding: "16px 8px",
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4,
       }}>
         {items.map((it, i) => (
           <div key={i} style={{
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
             borderRight: i < items.length - 1 ? `1px solid ${t.border}` : "none",
-            padding: "0 4px",
+            padding: "0 8px",
           }}>
             {it.icon}
-            <div style={{ fontSize: 8.5, color: t.textMuted, letterSpacing: 0.5, fontWeight: 600, textAlign: "center" }}>{it.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: t.text, lineHeight: 1 }}>{it.value}</div>
-            <div style={{ fontSize: 9, color: t.textMuted }}>{it.sub}</div>
+            <div style={{ fontSize: 10, color: t.textMuted, letterSpacing: 0.6, fontWeight: 600, textAlign: "center" }}>{it.label}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: t.text, lineHeight: 1 }}>{it.value}</div>
+            <div style={{ fontSize: 10, color: t.textMuted }}>{it.sub}</div>
           </div>
         ))}
       </div>
