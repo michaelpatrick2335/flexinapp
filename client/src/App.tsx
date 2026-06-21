@@ -9,6 +9,7 @@ import { clearCustomExercisesForCurrentUser } from "@/lib/custom-breath-exercise
 import { Welcome } from "@/pages/Welcome";
 import { CreateAccount } from "@/pages/CreateAccount";
 import { NameEmail } from "@/pages/NameEmail";
+import { SexSelect } from "@/pages/SexSelect";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
 import { TabShell } from "@/components/TabShell";
@@ -185,12 +186,17 @@ function AppContent() {
         );
       }
 
-      // signupStep === "sex" — Screen 4 not built yet; fall through to legacy
+      // signupStep === "sex" — Screen 4
       return (
-        <Onboarding
-          onComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+        <SexSelect
+          onContinue={() => {
+            // TODO: Submit signup to server (name/email/sex/themeOverride/isTrainer)
+            // For now, fall through to the legacy onboarding so dev can keep moving.
+            // The Welcome→CreateAccount→NameEmail→SexSelect chain is now complete on the UI side.
+            setAuthMode("login");
+            setSignupStep("create");
           }}
+          onBack={() => setSignupStep("name-email")}
         />
       );
     }
