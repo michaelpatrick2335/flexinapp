@@ -18,6 +18,7 @@ interface ProgressScan {
   isLatest: boolean;
   intensity: number;
   photoUrl: string | null;
+  renderUrl: string | null;
   silhouetteParams: SilhouetteParams | null;
   muscleEmphasis: Record<string, number> | null;
   buildLabel: string | null;
@@ -34,6 +35,7 @@ interface ProgressPayload {
     ctaText: string;
     buttonLabel: string;
     photoUrl: string | null;
+    renderUrl: string | null;
     silhouetteParams: SilhouetteParams | null;
     buildLabel: string | null;
     bodyFatPct: number | null;
@@ -200,7 +202,7 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
               <ArrowRightIcon color={t.accent} />
             </div>
 
-            {/* Silhouette tile (grid lines + glow). Parametric SVG \u2014 reflects the user's photo. */}
+            {/* Render tile — AI-generated photorealistic body matching the user's analysis. */}
             <div style={{
               borderRadius: 14,
               overflow: "hidden",
@@ -212,26 +214,40 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
               position: "relative",
               display: "grid", placeItems: "center",
             }}>
-              {/* Subtle grid overlay */}
-              <div style={{
-                position: "absolute", inset: 0,
-                backgroundImage: `
-                  linear-gradient(to right, ${t.accent}1a 1px, transparent 1px),
-                  linear-gradient(to bottom, ${t.accent}1a 1px, transparent 1px)
-                `,
-                backgroundSize: "32px 32px",
-                pointerEvents: "none",
-              }} />
-              <SilhouetteSVG
-                params={heroParams}
-                isFemale={isFemale}
-                accent={t.accent}
-                style={{
-                  width: "92%", height: "100%",
-                  filter: `drop-shadow(0 0 10px ${t.accentGlow})`,
-                  position: "relative",
-                }}
-              />
+              {data.scanHero.renderUrl ? (
+                <img
+                  src={data.scanHero.renderUrl}
+                  alt="Your Flexin render"
+                  style={{
+                    width: "100%", height: "100%", objectFit: "cover",
+                    display: "block",
+                    filter: `drop-shadow(0 0 14px ${t.accentGlow})`,
+                  }}
+                />
+              ) : (
+                <>
+                  {/* Fallback: parametric SVG + grid while render is pending or unavailable */}
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    backgroundImage: `
+                      linear-gradient(to right, ${t.accent}1a 1px, transparent 1px),
+                      linear-gradient(to bottom, ${t.accent}1a 1px, transparent 1px)
+                    `,
+                    backgroundSize: "32px 32px",
+                    pointerEvents: "none",
+                  }} />
+                  <SilhouetteSVG
+                    params={heroParams}
+                    isFemale={isFemale}
+                    accent={t.accent}
+                    style={{
+                      width: "92%", height: "100%",
+                      filter: `drop-shadow(0 0 10px ${t.accentGlow})`,
+                      position: "relative",
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -467,16 +483,28 @@ function ScanTile({ t, scan, isFemale }: { t: any; scan: ProgressScan; isFemale:
             zIndex: 2,
           }}>Latest</div>
         )}
-        <SilhouetteSVG
-          params={params}
-          isFemale={isFemale}
-          accent={t.accent}
-          style={{
-            width: "90%", height: "100%",
-            opacity: dim,
-            filter: latest ? `drop-shadow(0 0 10px ${t.accentGlow})` : "none",
-          }}
-        />
+        {scan.renderUrl ? (
+          <img
+            src={scan.renderUrl}
+            alt={scan.dateLabel}
+            style={{
+              width: "100%", height: "100%", objectFit: "cover",
+              opacity: dim,
+              filter: latest ? `drop-shadow(0 0 10px ${t.accentGlow})` : "none",
+            }}
+          />
+        ) : (
+          <SilhouetteSVG
+            params={params}
+            isFemale={isFemale}
+            accent={t.accent}
+            style={{
+              width: "90%", height: "100%",
+              opacity: dim,
+              filter: latest ? `drop-shadow(0 0 10px ${t.accentGlow})` : "none",
+            }}
+          />
+        )}
       </div>
       <div style={{
         fontSize: 11, fontWeight: 700,

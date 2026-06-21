@@ -187,6 +187,8 @@ export const scan = sqliteTable("scan", {
   muscleEmphasis: text("muscle_emphasis").notNull(),
   // Raw vision-model JSON we got back, for debugging / future re-analysis
   rawAnalysis: text("raw_analysis"),
+  // Generated photorealistic body render (Style B) — served via /api/progress/render/:id
+  renderPath: text("render_path"),
 });
 export const insertScanSchema = createInsertSchema(scan).omit({ id: true });
 export type InsertScan = z.infer<typeof insertScanSchema>;

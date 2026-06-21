@@ -7,6 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { analyzePhoto } from "./photoAnalysis";
+import { generateBodyRender } from "./renderGenerator";
 
 // ── Voice cue storage ─────────────────────────────────────────────────────
 const VOICE_DIR = path.join(process.cwd(), "voice-cues");
@@ -1090,6 +1091,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           isLatest: i === 0,
           intensity: 1 - i * 0.22,
           photoUrl: `/api/progress/photo/${r.id}`,
+          renderUrl: (r as any).renderPath ? `/api/progress/render/${r.id}` : null,
           silhouetteParams: safeParseProgress(r.silhouetteParams),
           muscleEmphasis: safeParseProgress(r.muscleEmphasis),
           buildLabel: r.buildLabel,
@@ -1115,6 +1117,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           ctaText: "Take a photo.",
           buttonLabel: hasScan ? "Take New Progress Photo" : "Take Progress Photo",
           photoUrl: latest?.photoUrl ?? null,
+          renderUrl: latest?.renderUrl ?? null,
           silhouetteParams: latest?.silhouetteParams ?? null,
           buildLabel: latest?.buildLabel ?? null,
           bodyFatPct: latest?.bodyFatPct ?? null,
@@ -1169,6 +1172,18 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           .all();
 
         const row = inserted[0];
+
+        // Generate photorealistic body render (Style B). Best-effort —
+        // we save the path back to the row if it succeeds.
+        const sexForRender: "male" | "female" = user.sex === "female" ? "female" : "male";
+        const renderPath = await generateBodyRender(analysis, sexForRender, row.id);
+        if (renderPath) {
+          db.update(schema.scan)
+            .set({ renderPath } as any)
+            .where(eq(schema.scan.id, row.id))
+            .run();
+        }
+
         res.json({
           ok: true,
           source: analysis.source,
@@ -1176,6 +1191,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
             id: row.id,
             date: row.scannedAt.slice(0, 10),
             photoUrl: `/api/progress/photo/${row.id}`,
+            renderUrl: renderPath ? `/api/progress/render/${row.id}` : null,
             silhouetteParams: analysis.silhouetteParams,
             muscleEmphasis: analysis.muscleEmphasis,
             buildLabel: analysis.buildLabel,
@@ -1188,6 +1204,29 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         res.status(500).json({ error: e?.message || "Failed to analyze photo" });
       }
     });
+  });
+
+  // Serve a generated body render by id
+  app.get("/api/progress/render/:id", (req, res) => {
+    try {
+      const user = getCurrentUser(req);
+      const id = parseInt(req.params.id, 10);
+      const row = db
+        .select()
+        .from(schema.scan)
+        .where(eq(schema.scan.id, id))
+        .limit(1)
+        .all()[0];
+      if (!row || row.userId !== user.id) return res.status(404).send("not found");
+      const renderPath = (row as any).renderPath;
+      if (!renderPath || !fs.existsSync(renderPath)) return res.status(404).send("render missing");
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      fs.createReadStream(renderPath).pipe(res);
+    } catch (e) {
+      console.error("/api/progress/render/:id", e);
+      res.status(500).send("err");
+    }
   });
 
   // Serve a scan photo by id (must belong to current user)
