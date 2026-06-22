@@ -128,43 +128,53 @@ workflows:
           # Sanity check: confirm the cert+key pair is paired and ready.
           security find-identity -v -p codesigning
 
-          # The cert in Apple has type DISTRIBUTION (not IOS_DISTRIBUTION).
-          # Get its ID so we can attach it to a new profile.
-          echo "Looking up Apple cert ID..."
-          CERT_ID=$(app-store-connect certificates list --type DISTRIBUTION --json 2>/dev/null | jq -r '.[0].id // empty')
+          # The .p12 we just imported into the keychain has a specific SHA1
+          # fingerprint. Apple Distribution accounts often have multiple certs,
+          # and grabbing `[0]` previously gave us the wrong one — Apple bound
+          # the new profile to the wrong cert and Xcode rejected it. To fix:
+          # match the keychain cert SERIAL NUMBER against Apple's cert list.
+          echo "Getting local cert serial from keychain..."
+          LOCAL_SERIAL=$(security find-certificate -c "Apple Distribution" -p | \
+            openssl x509 -noout -serial 2>/dev/null | sed 's/serial=//' | tr 'A-F' 'a-f' | sed 's/^0*//')
+          echo "Local cert serial (lower, no leading zeros): $LOCAL_SERIAL"
+
+          echo "Looking up matching Apple cert ID by serial..."
+          CERT_ID=$(app-store-connect certificates list --type DISTRIBUTION --json 2>/dev/null | \
+            jq -r --arg s "$LOCAL_SERIAL" '[.[] | select((.attributes.serialNumber // "" | ascii_downcase | sub("^0+";"")) == $s)] | .[0].id // empty')
+          if [ -z "$CERT_ID" ]; then
+            echo "WARN: serial match failed, falling back to first DISTRIBUTION cert"
+            CERT_ID=$(app-store-connect certificates list --type DISTRIBUTION --json 2>/dev/null | jq -r '.[0].id // empty')
+          fi
           echo "Apple cert ID: $CERT_ID"
 
           # Look up the bundle ID resource ID in Apple (needed for profiles create).
           BUNDLE_ID_RESOURCE=$(app-store-connect bundle-ids list --bundle-id-identifier "$APP_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
           echo "Apple bundle resource ID: $BUNDLE_ID_RESOURCE"
 
-          # First check if a profile already exists on disk from a previous build.
+          # Delete any stale Flexin App Store profiles in Apple. They may have
+          # been bound to a different/old distribution cert and would cause:
+          #   "Provisioning profile doesn't include signing certificate"
+          # We always recreate fresh, bound to OUR matched CERT_ID.
+          echo "Cleaning up stale Flexin App Store profiles in Apple..."
+          STALE_IDS=$(app-store-connect profiles list --json 2>/dev/null | \
+            jq -r --arg bid "$BUNDLE_ID_RESOURCE" '[.[] | select(.attributes.profileType == "IOS_APP_STORE" and .relationships.bundleId.data.id == $bid)] | .[].id')
+          for pid in $STALE_IDS; do
+            echo "Deleting stale profile $pid"
+            app-store-connect profiles delete "$pid" --no-input 2>/dev/null || true
+          done
+
+          # Wipe any cached profiles on disk too, since they may also be stale.
           PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
           mkdir -p "$PROFILE_DIR"
-          EXISTING_PROFILES=$(ls "$PROFILE_DIR"/IOS_APP_STORE_*.mobileprovision 2>/dev/null | wc -l)
-          echo "Existing profiles on disk: $EXISTING_PROFILES"
+          rm -f "$PROFILE_DIR"/*.mobileprovision 2>/dev/null || true
 
-          if [ "$EXISTING_PROFILES" -eq 0 ]; then
-            # No profile yet. List Apple profiles, look for an active IOS_APP_STORE
-            # profile bound to our bundle ID. If found, download it; else create.
-            echo "Looking for existing App Store profile in Apple for bundle id $BUNDLE_ID_RESOURCE..."
-            EXISTING_APPLE_PROFILE=$(app-store-connect profiles list --json 2>/dev/null | \
-              jq -r --arg bid "$BUNDLE_ID_RESOURCE" '[.[] | select(.attributes.profileType == "IOS_APP_STORE" and .attributes.profileState == "ACTIVE" and .relationships.bundleId.data.id == $bid)] | .[0].id // empty')
-            echo "Found existing Apple profile id: ${EXISTING_APPLE_PROFILE:-none}"
-
-            if [ -z "$EXISTING_APPLE_PROFILE" ]; then
-              echo "No existing profile in Apple. Creating a new one..."
-              app-store-connect profiles create \
-                --name "Flexin App Store $(date +%s)" \
-                --type IOS_APP_STORE \
-                --certificate-ids "$CERT_ID" \
-                --save \
-                "$BUNDLE_ID_RESOURCE"
-            else
-              echo "Downloading existing Apple profile $EXISTING_APPLE_PROFILE..."
-              app-store-connect profiles get "$EXISTING_APPLE_PROFILE" --save
-            fi
-          fi
+          echo "Creating fresh App Store profile bound to cert $CERT_ID..."
+          app-store-connect profiles create \
+            --name "Flexin App Store $(date +%s)" \
+            --type IOS_APP_STORE \
+            --certificate-ids "$CERT_ID" \
+            --save \
+            "$BUNDLE_ID_RESOURCE"
 
           # List what's on disk
           echo "Provisioning profiles on disk:"
