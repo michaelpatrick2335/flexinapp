@@ -290,7 +290,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         line_items: [{
           price_data: {
             currency: "usd",
-            product_data: { name: "Flexin Full Access", description: "Unlimited meditations, all 1000 levels, all 25 monk ranks" },
+            product_data: { name: "Flexin Full Access", description: "Unlimited workout logging, full avatar progression, all 25 rank tiers, squad mode" },
             unit_amount: 499,
             recurring: { interval: "month" },
           },

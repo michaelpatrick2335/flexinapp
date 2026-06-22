@@ -228,8 +228,8 @@ function AppContent() {
           initialAvatarId={signupAvatarId}
           onContinue={async (avatarId) => {
             setSignupAvatarId(avatarId);
+            const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinapp.com" : "";
             try {
-              const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinapp.com" : "";
               const r = await fetch(`${apiBase}/api/signup`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -244,13 +244,57 @@ function AppContent() {
                   avatarBodyType: avatarId,
                 }),
               });
-              if (!r.ok) throw new Error(`signup ${r.status}`);
-              setUserEmail(signupEmail);
-              queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+              if (r.ok) {
+                // Brand-new account created.
+                setUserEmail(signupEmail);
+                queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+                return;
+              }
+              // 409 = account already exists with this email. Log the user in
+              // automatically with the same email so they don't get dumped
+              // back to a confusing legacy login screen. The chosen avatar /
+              // sex / weight are buffered in component state; we'll persist
+              // them post-login via PATCH /api/user.
+              if (r.status === 409) {
+                const loginRes = await fetch(`${apiBase}/api/login`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: signupEmail }),
+                });
+                if (loginRes.ok) {
+                  setUserEmail(signupEmail);
+                  // Best-effort: push the freshly-picked profile fields onto
+                  // the existing account so the Home screen avatar matches
+                  // what they just selected. Failures are non-fatal.
+                  try {
+                    await fetch(`${apiBase}/api/user`, {
+                      method: "PATCH",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "x-user-email": signupEmail,
+                      },
+                      body: JSON.stringify({
+                        name: signupName,
+                        sex: signupSex,
+                        themeOverride: signupThemeOverride,
+                        age: signupAge,
+                        weightLbs: signupWeight,
+                        avatarBodyType: avatarId,
+                      }),
+                    });
+                  } catch {}
+                  queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+                  return;
+                }
+              }
+              // Any other failure: surface to console; stay on avatar screen
+              // so the user can retry instead of dumping them to a stale
+              // legacy login UI.
+              console.error("[flexin] signup failed", r.status);
+              alert("Couldn't finish signup. Please check your connection and try again.");
             } catch (err) {
-              console.error("[flexin] signup failed", err);
-              setAuthMode("login");
-              setSignupStep("create");
+              console.error("[flexin] signup network error", err);
+              alert("Network error. Please try again.");
             }
           }}
           onBack={() => setSignupStep("sex")}

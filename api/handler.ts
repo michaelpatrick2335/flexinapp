@@ -699,7 +699,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await pool.query(
           `INSERT INTO group_activity (group_id, user_id, activity_type, payload, bananas_earned)
            VALUES ($1, $2, 'member_joined', $3::jsonb, 0)`,
-          [group.id, row.id, JSON.stringify({ userName: row.name || row.email?.split("@")[0] || "A new monk" })],
+          [group.id, row.id, JSON.stringify({ userName: row.name || row.email?.split("@")[0] || "A new squad member" })],
         );
       }
       return res.json({
@@ -760,7 +760,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await pool.query(
           `INSERT INTO group_activity (group_id, user_id, activity_type, payload, bananas_earned)
            VALUES ($1, $2, 'member_joined', $3::jsonb, 0)`,
-          [group.id, u.id, JSON.stringify({ userName: u.name || u.email?.split("@")[0] || "A new monk" })],
+          [group.id, u.id, JSON.stringify({ userName: u.name || u.email?.split("@")[0] || "A new squad member" })],
         );
       }
       return res.json({

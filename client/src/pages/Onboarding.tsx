@@ -251,7 +251,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void; startAtPaym
         {/* Helper text */}
         <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.5, marginTop: 4, maxWidth: 280 }}>
           {mode === "signup"
-            ? "Just your email \u2014 no password needed. Try free meditation sessions, upgrade anytime."
+            ? "Just your email \u2014 no password needed. Start free, upgrade anytime."
             : "Enter the email you signed up with to continue your journey."}
         </p>
       </div>

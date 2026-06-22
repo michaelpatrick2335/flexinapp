@@ -17,12 +17,12 @@ interface PaywallProps {
 }
 
 const PERKS = [
-  { icon: "🧘", text: "Unlimited daily meditations" },
-  { icon: "🍌", text: "Full banana & level progression" },
-  { icon: "🔔", text: "Bell sounds & monk music" },
-  { icon: "🔥", text: "Streak tracking & stats" },
-  { icon: "🐒", text: "All 25 monk rank names + evolving mascot" },
-  { icon: "✨", text: "Access to Experienced & Enlightened tiers" },
+  { icon: "💪", text: "Unlimited workout logging" },
+  { icon: "📈", text: "Avatar progression — watch your body level up" },
+  { icon: "🔥", text: "Streak tracking, stats & progress photos" },
+  { icon: "👥", text: "Squad mode — invite friends, send energy" },
+  { icon: "🏆", text: "All 25 rank tiers + transformation milestones" },
+  { icon: "✨", text: "Coach Max guidance and personalized plans" },
 ];
 
 const IS_IOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
@@ -87,9 +87,9 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center stars-bg px-6 text-center relative overflow-hidden">
         <Fireflies />
-        <div className="text-6xl mb-4 level-up relative z-10">🙏</div>
-        <h2 className="font-display text-gold text-2xl font-bold mb-2">Welcome to the temple, {userName}</h2>
-        <p className="text-muted-foreground text-sm">Your journey has no limit now.</p>
+        <div className="text-6xl mb-4 level-up relative z-10">💪</div>
+        <h2 className="font-display text-gold text-2xl font-bold mb-2">Welcome to Flexin, {userName}</h2>
+        <p className="text-muted-foreground text-sm">Time to build the body and the discipline.</p>
       </div>
     );
   }
@@ -101,8 +101,8 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
   const ctaLabel = IS_IOS
     ? (iapBusy
         ? "Connecting to App Store..."
-        : "Enter Temple")
-    : (unlockMutation.isPending ? "Unlocking..." : `Unlock for ${displayPrice} 🙏`);
+        : "Start My Journey")
+    : (unlockMutation.isPending ? "Unlocking..." : `Unlock for ${displayPrice} 💪`);
 
   const handleCTA = () => {
     if (IS_IOS) {
@@ -121,7 +121,7 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
           <img src={flexinCircle} alt="Flexin" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <h1 className="font-display text-gold font-bold" style={{ fontSize: "1.6rem", lineHeight: 1.15 }}>
-          Journey to inner peace starts now
+          Your transformation starts now
         </h1>
         <p className="text-muted-foreground text-sm mt-2 max-w-xs">
           Flexin is about showing up for your squad — build strength, discipline, and accountability together.

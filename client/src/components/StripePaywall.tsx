@@ -185,7 +185,7 @@ export function StripePaywall({ userName, onSuccess, onSkip }: StripePaywallProp
             <div style={{ flex: 1, height: 1, background: "rgba(245,200,66,0.25)" }} />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {["Unlimited meditations", "All 1,000 levels unlocked", "All 25 monk ranks", "Progress forever saved", "Level affirmations"].map(f => (
+            {["Unlimited workout logging", "All 1,000 levels unlocked", "All 25 rank tiers", "Progress forever saved", "Daily affirmations"].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, border: "2px solid #2ea057", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2.5 6.5l3 3 5-5" stroke="#2ea057" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
