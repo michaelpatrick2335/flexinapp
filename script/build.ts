@@ -73,14 +73,22 @@ async function buildAll() {
     }
   }
 
-  // Copy audio files to dist/public/audio/ for static serving
+  // Copy audio files to dist/public/audio/ for static serving (optional)
   console.log("copying audio files...");
   await mkdir("dist/public/audio", { recursive: true });
-  const audioFiles = await readdir("client/public/audio");
-  for (const file of audioFiles) {
-    await copyFile(`client/public/audio/${file}`, `dist/public/audio/${file}`);
+  try {
+    const audioFiles = await readdir("client/public/audio");
+    for (const file of audioFiles) {
+      await copyFile(`client/public/audio/${file}`, `dist/public/audio/${file}`);
+    }
+    console.log(`copied ${audioFiles.length} audio files`);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      console.log("  no audio folder found, skipping");
+    } else {
+      throw e;
+    }
   }
-  console.log(`copied ${audioFiles.length} audio files`);
 
   console.log("building server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));
