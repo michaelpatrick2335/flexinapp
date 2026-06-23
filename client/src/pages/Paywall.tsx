@@ -3,26 +3,43 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, clearUserEmail } from "@/lib/queryClient";
 import { Capacitor } from "@capacitor/core";
 import {
+  Dumbbell,
+  TrendingUp,
+  Flame,
+  Users,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+  ChevronRight,
+  Check,
+} from "lucide-react";
+import {
   getMonthlyOffering,
   purchaseMonthly,
   restorePurchases,
   type MonthlyOffering,
 } from "@/lib/iap";
 import flexinCircle from "@/assets/flexin_circle.jpeg";
-import { Fireflies } from "@/components/Fireflies";
 
 interface PaywallProps {
   onUnlock: () => void;
   userName: string;
 }
 
-const PERKS = [
-  { icon: "💪", text: "Unlimited workout logging" },
-  { icon: "📈", text: "Avatar progression — watch your body level up" },
-  { icon: "🔥", text: "Streak tracking, stats & progress photos" },
-  { icon: "👥", text: "Squad mode — invite friends, send energy" },
-  { icon: "🏆", text: "All 25 rank tiers + transformation milestones" },
-  { icon: "✨", text: "Coach Max guidance and personalized plans" },
+// Blue-themed paywall matching the v2 mockup. All accents use the same
+// electric-blue tone; backgrounds stay pure black with thin blue strokes.
+const BLUE = "#3B82F6";
+const BLUE_SOFT = "rgba(59,130,246,0.25)";
+const BLUE_STROKE = "rgba(59,130,246,0.45)";
+const BLUE_GLOW = "rgba(59,130,246,0.55)";
+
+const PERKS: { Icon: typeof Dumbbell; text: string }[] = [
+  { Icon: Dumbbell, text: "Unlimited workout logging" },
+  { Icon: TrendingUp, text: "Avatar progression — watch your body level up" },
+  { Icon: Flame, text: "Streak tracking, stats & progress photos" },
+  { Icon: Users, text: "Squad mode — invite friends, send energy" },
+  { Icon: ShieldCheck, text: "All 25 rank tiers + transformation milestones" },
+  { Icon: Sparkles, text: "Coach guidance and personalized plans" },
 ];
 
 const IS_IOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
@@ -90,24 +107,26 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
 
   if (purchased) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center stars-bg px-6 text-center relative overflow-hidden">
-        <Fireflies />
-        <div className="text-6xl mb-4 level-up relative z-10">💪</div>
-        <h2 className="font-display text-gold text-2xl font-bold mb-2">Welcome to Flexin, {userName}</h2>
-        <p className="text-muted-foreground text-sm">Time to build the body and the discipline.</p>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden"
+        style={{ background: "#000" }}
+      >
+        <div className="text-6xl mb-4 relative z-10" style={{ filter: `drop-shadow(0 0 18px ${BLUE_GLOW})` }}>⚡️</div>
+        <h2 className="text-2xl font-bold mb-2" style={{ color: BLUE }}>Welcome to Flexin, {userName}</h2>
+        <p className="text-sm" style={{ color: "#cbd5e1" }}>Time to build the body and the discipline.</p>
       </div>
     );
   }
 
-  // Pricing display. On iOS use the live price from the App Store (falls back to $6.99).
+  // Pricing display. On iOS use the live price from the App Store (falls back to $24.99).
   // On web, keep the existing $4.99 web price.
-  const displayPrice = IS_IOS ? (offering?.priceString || "$6.99") : "$4.99";
+  const displayPrice = IS_IOS ? (offering?.priceString || "$24.99") : "$4.99";
   const trialDays = IS_IOS ? (offering?.introTrialDays ?? 3) : null;
   const ctaLabel = IS_IOS
     ? (iapBusy
         ? "Connecting to App Store..."
         : "Start My Journey")
-    : (unlockMutation.isPending ? "Unlocking..." : `Unlock for ${displayPrice} 💪`);
+    : (unlockMutation.isPending ? "Unlocking..." : `Unlock for ${displayPrice}`);
 
   const handleCTA = () => {
     if (IS_IOS) {
@@ -118,87 +137,130 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start px-5 py-8 stars-bg overflow-y-auto relative">
-      <Fireflies fixed />
-      {/* Header */}
+    <div
+      className="min-h-screen flex flex-col items-center justify-start px-5 py-8 overflow-y-auto relative"
+      style={{ background: "#000" }}
+    >
+      {/* Header — logo with blue glow ring + description */}
       <div className="flex flex-col items-center text-center mb-6">
-        <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', marginBottom: 18, border: '2px solid rgba(245,200,66,0.4)', boxShadow: '0 0 24px rgba(245,200,66,0.25)' }}>
-          <img src={flexinCircle} alt="Flexin" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div
+          style={{
+            width: 130,
+            height: 130,
+            borderRadius: "50%",
+            overflow: "hidden",
+            marginBottom: 20,
+            border: `2px solid ${BLUE}`,
+            boxShadow: `0 0 28px ${BLUE_GLOW}, 0 0 60px ${BLUE_SOFT}`,
+          }}
+        >
+          <img src={flexinCircle} alt="Flexin" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
-        <h1 className="font-display text-gold font-bold" style={{ fontSize: "1.6rem", lineHeight: 1.15 }}>
-          Your transformation starts now
-        </h1>
-        <p className="text-muted-foreground text-sm mt-2 max-w-xs">
-          Flexin is about showing up for your squad — build strength, discipline, and accountability together.
+        <p className="text-sm mt-2 max-w-xs" style={{ color: "#cbd5e1", lineHeight: 1.5 }}>
+          <span style={{ color: BLUE, fontWeight: 600 }}>Flexin</span> is about showing up for your squad — build strength, discipline, and accountability together.
         </p>
       </div>
 
       {/* Price card */}
       <div
-        className="glass-card rounded-3xl p-5 w-full max-w-sm mb-5"
-        style={{ border: "1.5px solid rgba(245,200,66,0.3)", boxShadow: "0 0 30px rgba(245,200,66,0.08)" }}
+        className="rounded-3xl p-5 w-full max-w-sm mb-6"
+        style={{
+          background: "#000",
+          border: `1.5px solid ${BLUE_STROKE}`,
+          boxShadow: `0 0 32px ${BLUE_SOFT}, inset 0 0 24px rgba(59,130,246,0.05)`,
+        }}
       >
         {/* Price label */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p className="font-display font-bold text-foreground text-lg">Flexin Full Access</p>
-            <p className="text-muted-foreground text-xs">Cancel anytime</p>
+            <p className="font-bold text-white text-lg">Flexin Full Access</p>
+            <p className="text-xs mt-0.5" style={{ color: BLUE }}>Cancel anytime</p>
           </div>
           <div className="text-right" style={{ flexShrink: 0 }}>
             {IS_IOS && trialDays ? (
               <>
-                <p className="font-display font-bold text-gold text-2xl" style={{ lineHeight: 1 }}>FREE</p>
-                <p className="text-muted-foreground text-xs mt-1" style={{ maxWidth: 130, lineHeight: 1.3 }}>
+                <p className="font-bold text-3xl" style={{ color: BLUE, lineHeight: 1 }}>FREE</p>
+                <p className="text-xs mt-1" style={{ color: "#94a3b8", maxWidth: 140, lineHeight: 1.3 }}>
                   {displayPrice}/month after {trialDays} days
                 </p>
               </>
             ) : (
               <>
-                <p className="font-display font-bold text-gold text-2xl">{displayPrice}</p>
-                <p className="text-muted-foreground text-xs">/month</p>
+                <p className="font-bold text-3xl" style={{ color: BLUE }}>{displayPrice}</p>
+                <p className="text-xs" style={{ color: "#94a3b8" }}>/month</p>
               </>
             )}
           </div>
         </div>
 
-        {/* Perks list */}
-        <div className="flex flex-col gap-2.5">
-          {PERKS.map((perk, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-lg w-7 flex-shrink-0">{perk.icon}</span>
-              <span className="text-sm text-foreground">{perk.text}</span>
-              <svg className="ml-auto flex-shrink-0" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="7" cy="7" r="7" fill="rgba(245,200,66,0.15)" />
-                <path d="M4 7L6 9L10 5" stroke="#f5c842" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+        {/* Perks list — each row has a blue-stroked icon tile + thin divider */}
+        <div className="flex flex-col">
+          {PERKS.map(({ Icon, text }, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 py-3"
+              style={i > 0 ? { borderTop: "1px solid rgba(59,130,246,0.15)" } : undefined}
+            >
+              {/* Icon tile */}
+              <div
+                className="flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  border: `1px solid ${BLUE_STROKE}`,
+                  background: "rgba(59,130,246,0.08)",
+                  boxShadow: `0 0 12px rgba(59,130,246,0.15)`,
+                }}
+              >
+                <Icon size={22} color={BLUE} strokeWidth={2} style={{ filter: `drop-shadow(0 0 6px ${BLUE_GLOW})` }} />
+              </div>
+              {/* Text */}
+              <span className="text-sm flex-1" style={{ color: "#e5e7eb", lineHeight: 1.35 }}>{text}</span>
+              {/* Check */}
+              <div
+                className="flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  border: `1.5px solid ${BLUE}`,
+                }}
+              >
+                <Check size={12} color={BLUE} strokeWidth={3} />
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* CTA — with gentle pulse/glow */}
+      {/* CTA — blue gradient with lightning bolt + chevron */}
       <style>{`
-        @keyframes flexin-cta-pulse {
-          0%, 100% { transform: scale(1); box-shadow: 0 8px 28px rgba(245,200,66,0.25), 0 0 0 0 rgba(245,200,66,0); }
-          50%      { transform: scale(1.025); box-shadow: 0 10px 36px rgba(245,200,66,0.45), 0 0 36px 8px rgba(245,200,66,0.35); }
+        @keyframes flexin-cta-pulse-blue {
+          0%, 100% { transform: scale(1); box-shadow: 0 8px 28px rgba(59,130,246,0.35), 0 0 0 0 rgba(59,130,246,0); }
+          50%      { transform: scale(1.02); box-shadow: 0 10px 40px rgba(59,130,246,0.6), 0 0 40px 8px rgba(59,130,246,0.45); }
         }
-        .flexin-cta { animation: flexin-cta-pulse 2.6s ease-in-out infinite; will-change: transform, box-shadow; }
-        .flexin-cta:disabled { animation: none; }
+        .flexin-cta-blue { animation: flexin-cta-pulse-blue 2.6s ease-in-out infinite; will-change: transform, box-shadow; }
+        .flexin-cta-blue:disabled { animation: none; }
         @media (prefers-reduced-motion: reduce) {
-          .flexin-cta { animation: none; box-shadow: 0 8px 32px rgba(245,200,66,0.3); }
+          .flexin-cta-blue { animation: none; box-shadow: 0 8px 32px rgba(59,130,246,0.4); }
         }
       `}</style>
       <button
         onClick={handleCTA}
         disabled={iapBusy || unlockMutation.isPending}
-        className="flexin-cta w-full max-w-sm py-5 rounded-3xl font-display font-bold text-lg transition-all active:scale-95 disabled:opacity-50"
+        className="flexin-cta-blue w-full max-w-sm rounded-2xl font-bold text-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-between"
         style={{
-          background: "linear-gradient(135deg, var(--color-saffron), var(--color-gold))",
-          color: "#1a0a00",
+          padding: "18px 22px",
+          background: "linear-gradient(135deg, #1e40af 0%, #3B82F6 50%, #60a5fa 100%)",
+          color: "#ffffff",
+          border: "1px solid rgba(147,197,253,0.4)",
         }}
         data-testid="button-unlock"
       >
-        {ctaLabel}
+        <Zap size={22} fill="#ffffff" color="#ffffff" strokeWidth={0} />
+        <span style={{ flex: 1, textAlign: "center" }}>{ctaLabel}</span>
+        <ChevronRight size={22} color="#ffffff" strokeWidth={2.5} />
       </button>
 
       {/* Error */}
@@ -215,12 +277,12 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
         </div>
       )}
 
-      {/* Fine print */}
-      <p className="text-xs text-muted-foreground mt-3 text-center max-w-xs">
+      {/* Fine print — three short lines, soft gray */}
+      <p className="text-xs mt-4 text-center max-w-xs" style={{ color: "#94a3b8", lineHeight: 1.55 }}>
         {IS_IOS && trialDays ? (
           <>
-            Free for {trialDays} days, then {displayPrice}/month.
-            Cancel anytime in Settings · App Store.
+            Free for {trialDays} days, then {displayPrice}/month.<br />
+            Cancel anytime in Settings · App Store.<br />
             Subscription renews automatically.
           </>
         ) : (
@@ -229,7 +291,7 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
       </p>
 
       {/* Bottom links — Restore purchase + Log In */}
-      <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+      <div className="mt-4 flex items-center gap-4 text-xs" style={{ color: "#94a3b8" }}>
         {IS_IOS && (
           <>
             <button
@@ -246,8 +308,6 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
         <button
           onClick={async () => {
             // Sign out locally and bounce back to the very first page (Onboarding).
-            // Clearing the stored email drops `x-user-email`, so `/api/user` returns null
-            // and App.tsx renders <Onboarding /> as the first screen.
             try { await apiRequest("POST", "/api/logout", {}); } catch {}
             clearUserEmail();
             queryClient.clear();
@@ -263,7 +323,7 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
 
       {/* Required legal links on the iOS paywall (Apple Guideline 3.1.2 / 5.1.1) */}
       {IS_IOS && (
-        <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground opacity-70">
+        <div className="mt-3 flex items-center gap-3 text-xs opacity-70" style={{ color: "#94a3b8" }}>
           <a href="https://www.flexinfitapp.com/terms" target="_blank" rel="noopener" className="underline underline-offset-4">
             Terms of Use
           </a>
