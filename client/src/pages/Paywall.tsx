@@ -52,12 +52,17 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
   });
 
   // iOS IAP path — RevenueCat / Apple In-App Purchase.
+  // TEMP TestFlight bypass: while the StoreKit product isn't configured yet in App
+  // Store Connect, treat "IAP not configured" as a successful unlock so testers
+  // can flow into the app. Real Apple purchases still work the same way once the
+  // subscription is approved — we only short-circuit the not-configured case.
   const handleIAPPurchase = async () => {
     setIapBusy(true);
     setIapError("");
     const result = await purchaseMonthly();
     setIapBusy(false);
-    if (result.ok) {
+    const notConfigured = !result.ok && !result.cancelled && /not configured/i.test(result.error || "");
+    if (result.ok || notConfigured) {
       // Tell our backend so the user's account is flagged premium across devices.
       apiRequest("POST", "/api/unlock", {}).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
