@@ -64,7 +64,7 @@ interface TribeProps {
   user: User;
 }
 
-const SHARE_BASE_URL = "https://www.flexinapp.com";
+const SHARE_BASE_URL = "https://www.flexinfitapp.com";
 
 export function Tribe({ user }: TribeProps) {
   // ── Group list + active group ──────────────────────────────────────────

@@ -486,7 +486,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const StripeLib = (StripeMod as any).default || StripeMod;
       const stripe = new StripeLib(stripeKey, { apiVersion: "2024-06-20" });
       const { email: stripeEmail, joinCode: stripeJoinCode } = req.body as { email: string; joinCode?: string };
-      const origin = (req.headers.origin as string) || "https://www.flexinapp.com";
+      const origin = (req.headers.origin as string) || "https://www.flexinfitapp.com";
       // If this is a tribe invite signup flow, redirect to /post-signup so the
       // user gets an App Store CTA. Otherwise stay with the legacy in-app redirect.
       const isInviteFlow = !!stripeJoinCode && /^[A-Z0-9]{4,10}$/i.test(stripeJoinCode);

@@ -41,7 +41,7 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
       .catch(() => setOffering(null));
   }, []);
 
-  // Web/Stripe path (unchanged) — used on flexinapp.com.
+  // Web/Stripe path (unchanged) — used on flexinfitapp.com.
   const unlockMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/unlock", {}),
     onSuccess: () => {
@@ -259,11 +259,11 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
       {/* Required legal links on the iOS paywall (Apple Guideline 3.1.2 / 5.1.1) */}
       {IS_IOS && (
         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground opacity-70">
-          <a href="https://www.flexinapp.com/terms" target="_blank" rel="noopener" className="underline underline-offset-4">
+          <a href="https://www.flexinfitapp.com/terms" target="_blank" rel="noopener" className="underline underline-offset-4">
             Terms of Use
           </a>
           <span>·</span>
-          <a href="https://www.flexinapp.com/privacy" target="_blank" rel="noopener" className="underline underline-offset-4">
+          <a href="https://www.flexinfitapp.com/privacy" target="_blank" rel="noopener" className="underline underline-offset-4">
             Privacy
           </a>
         </div>

@@ -27,8 +27,8 @@ app.use(express.urlencoded({ extended: false }));
 // CORS — allow web origins AND Capacitor native (iOS/Android) origins
 app.use((req, res, next) => {
   const allowed = [
-    "https://flexinapp.com",
-    "https://www.flexinapp.com",
+    "https://flexinfitapp.com",
+    "https://www.flexinfitapp.com",
     "https://flexinapp.vercel.app",
     // Capacitor native WebView origins
     "capacitor://localhost",

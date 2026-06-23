@@ -108,7 +108,7 @@ function AppContent() {
     if (!user?.isPremium) return;
     const email = getUserEmail();
     if (!email) return;
-    const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinapp.com" : "";
+    const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinfitapp.com" : "";
     const headers = { "Content-Type": "application/json", "x-user-email": email };
 
     (async () => {
@@ -228,7 +228,7 @@ function AppContent() {
           initialAvatarId={signupAvatarId}
           onContinue={async (avatarId) => {
             setSignupAvatarId(avatarId);
-            const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinapp.com" : "";
+            const apiBase = Capacitor.isNativePlatform() ? "https://www.flexinfitapp.com" : "";
             try {
               const r = await fetch(`${apiBase}/api/signup`, {
                 method: "POST",

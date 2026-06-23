@@ -747,7 +747,7 @@ function SendEnergyModal({ t, members, sentTo, onPick, onClose }: {
 
 function InviteModal({ t, squadName, onClose }: { t: any; squadName: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
-  const inviteUrl = `https://www.flexinapp.com/join/FLEX-${(Math.random().toString(36).slice(2, 7) || "DEMO1").toUpperCase()}`;
+  const inviteUrl = `https://www.flexinfitapp.com/join/FLEX-${(Math.random().toString(36).slice(2, 7) || "DEMO1").toUpperCase()}`;
 
   async function copy() {
     try {

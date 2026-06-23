@@ -18,7 +18,7 @@ export const BUILTIN_TRACKS: BuiltinTrack[] = [
 /** Returns the proxy-aware URL for a built-in track */
 export function getBuiltinTrackUrl(id: string): string {
   // Read VITE_API_BASE_URL at runtime (set in native iOS builds via Codemagic).
-  // Empty string for web builds (same-origin /api/* on flexinapp.com).
+  // Empty string for web builds (same-origin /api/* on flexinfitapp.com).
   const BUILD_API_BASE = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
   const API_BASE = BUILD_API_BASE && BUILD_API_BASE.length > 0
     ? BUILD_API_BASE.replace(/\/$/, "")

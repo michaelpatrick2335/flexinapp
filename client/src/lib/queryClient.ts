@@ -1,8 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// In the web build (served from flexinapp.com), API_BASE is "" so calls go to /api/* on the same origin.
+// In the web build (served from flexinfitapp.com), API_BASE is "" so calls go to /api/* on the same origin.
 // In the native iOS/Android build (served from capacitor://localhost), Vite injects VITE_API_BASE_URL
-// at build time so all /api/* calls hit the live flexinapp.com server.
+// at build time so all /api/* calls hit the live flexinfitapp.com server.
 const BUILD_API_BASE = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
 export const API_BASE = BUILD_API_BASE && BUILD_API_BASE.length > 0
   ? BUILD_API_BASE.replace(/\/$/, "")

@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   // at your live web build instead of the bundled copy. Leave commented
   // out for production builds.
   // server: {
-  //   url: 'https://www.flexinapp.com/app',
+  //   url: 'https://www.flexinfitapp.com/app',
   //   cleartext: false,
   // },
   ios: {

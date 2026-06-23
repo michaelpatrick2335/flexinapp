@@ -198,7 +198,7 @@ export function CreateAccount({
         >
           By continuing, you agree to our{" "}
           <a
-            href="https://flexinapp.com/terms"
+            href="https://flexinfitapp.com/terms"
             target="_blank"
             rel="noreferrer"
             style={{ color: t.accent, textDecoration: "underline" }}
@@ -207,7 +207,7 @@ export function CreateAccount({
           </a>{" "}
           and{" "}
           <a
-            href="https://flexinapp.com/privacy"
+            href="https://flexinfitapp.com/privacy"
             target="_blank"
             rel="noreferrer"
             style={{ color: t.accent, textDecoration: "underline" }}

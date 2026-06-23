@@ -20,7 +20,7 @@ workflows:
       vars:
         APP_ID: com.flexinapp.fitness
         VITE_NATIVE_BUILD: "1"
-        VITE_API_BASE_URL: "https://www.flexinapp.com"
+        VITE_API_BASE_URL: "https://www.flexinfitapp.com"
         # Set VITE_REVENUECAT_IOS_KEY in the Codemagic UI under Environment
         # variables (do not commit the key here). Required for In-App Purchase.
         # VITE_REVENUECAT_IOS_KEY: "appl_xxxxxxxxxxxxxxxxxxxxx"
@@ -41,7 +41,7 @@ workflows:
       - name: Build web client (native mode)
         script: |
           VITE_NATIVE_BUILD=1 \
-          VITE_API_BASE_URL=https://www.flexinapp.com \
+          VITE_API_BASE_URL=https://www.flexinfitapp.com \
           VITE_REVENUECAT_IOS_KEY="$VITE_REVENUECAT_IOS_KEY" \
             npx tsx script/build.ts
       - name: Add iOS platform (creates Xcode project if missing)
