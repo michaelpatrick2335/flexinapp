@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn } from "@/lib/queryClient";
@@ -6,6 +6,7 @@ import silhouetteMale from "@/assets/silhouette_male.png";
 import silhouetteFemale from "@/assets/silhouette_female.png";
 import flexinLogo from "@/assets/flexin_logo.png";
 import { avatarImageFor } from "@/lib/avatars";
+import { GoalBodyTypeModal } from "@/components/GoalBodyTypeModal";
 
 // ── Types matching /api/dashboard response ────────────────────────────────
 interface DashboardPayload {
@@ -15,6 +16,7 @@ interface DashboardPayload {
     isPremium: boolean;
     xp: number; xpToNext: number; streakDays: number;
     avatarBodyType?: string | null;
+    goalAvatarBodyType?: string | null;
   };
   muscleGroups: { key: string; label: string; progress: number; streakDays: number }[];
   bodyDeltas: { key: string; label: string; delta: number; isOverall?: boolean }[];
@@ -57,6 +59,10 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     staleTime: 60_000,
   });
 
+  // First-login goal body type prompt. We optimistically dismiss it once the
+  // user picks so they don't get re-prompted while the dashboard refetches.
+  const [goalDismissed, setGoalDismissed] = useState(false);
+
   if (isLoading || !data) {
     return (
       <div style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -72,8 +78,17 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     ? avatarImageFor(user.avatarBodyType, (user.sex === "female" ? "female" : "male"))
     : defaultSilhouette;
 
+  const showGoalModal = !goalDismissed && !user.goalAvatarBodyType;
+
   return (
     <div style={{ minHeight: "100vh", background: t.bg, color: t.text, paddingBottom: 110, overflowX: "hidden" }}>
+      {showGoalModal && (
+        <GoalBodyTypeModal
+          sex={user.sex === "female" ? "female" : "male"}
+          initialGoal={user.goalAvatarBodyType ?? null}
+          onSaved={() => setGoalDismissed(true)}
+        />
+      )}
 
       {/* ═════════════════════ HERO ═════════════════════ */}
       <HeroSection

@@ -98,6 +98,7 @@ async function ensureTables(pool: Pool) {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS weight_lbs REAL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_body_type TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS goal_avatar_body_type TEXT;
     -- Flexin progression fields (mirror what the Home dashboard expects)
     ALTER TABLE users ADD COLUMN IF NOT EXISTS form_level INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS form_rank TEXT NOT NULL DEFAULT 'Newbie';
@@ -153,6 +154,7 @@ function rowToUser(row: any) {
     age: row.age ?? null,
     weightLbs: row.weight_lbs ?? null,
     avatarBodyType: row.avatar_body_type ?? null,
+    goalAvatarBodyType: row.goal_avatar_body_type ?? null,
     formLevel: row.form_level ?? 1,
     formRank: row.form_rank ?? "Newbie",
     xp: row.xp ?? 0,
@@ -199,6 +201,7 @@ const COL_MAP: Record<string, string> = {
   activeGroupId: "active_group_id",
   sex: "sex", themeOverride: "theme_override", isTrainer: "is_trainer",
   age: "age", weightLbs: "weight_lbs", avatarBodyType: "avatar_body_type",
+  goalAvatarBodyType: "goal_avatar_body_type",
   formLevel: "form_level", formRank: "form_rank", xp: "xp", xpToNext: "xp_to_next",
 };
 
@@ -340,6 +343,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           xpToNext: u.xpToNext,
           streakDays: u.streakDays,
           avatarBodyType: u.avatarBodyType,
+          goalAvatarBodyType: u.goalAvatarBodyType,
         },
         muscleGroups: [
           { key: "chest",     label: "Chest",     progress: 0, streakDays: 0 },
@@ -381,6 +385,97 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         generatedAt: new Date().toISOString(),
       };
       return res.json(dashboard);
+    }
+
+    // ── GET /api/squad ──────────────────────────────────────────────────────
+    // Squad tab payload. Returns a friendly empty/welcome state for users
+    // who don't yet have a real squad set up. Wires up an inviting UI
+    // instead of an indefinite loading spinner.
+    if (path === "/squad") {
+      if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      const isFemale = u.sex === "female";
+      const squadPayload = {
+        squad: {
+          id: 0,
+          name: "Your Squad",
+          memberCount: 1,
+          streakDays: 0,
+          energy: { percent: 100, message: "Invite friends to fire up the squad", trend: [50, 60, 70, 80, 90, 100], direction: "up" as const },
+          members: [
+            { name: u.name || "You", initials: ((u.name || "You")[0] || "Y").toUpperCase(), bg: "#3B82F6", avatarUrl: null, lastActiveAgo: "now" },
+          ],
+        },
+        coach: { name: isFemale ? "Maxine" : "Max", sex: isFemale ? "female" as const : "male" as const, message: "Bring two friends in this week — squads of 3+ stay 4x more consistent.", cta: "Invite friends" },
+        activity: [],
+        reactions: ["fire", "clap", "eyes", "ghost"],
+        aiInsight: { message: "Once your squad is rolling I'll flag inactive members here.", cta: "", inactiveMembers: [] },
+        ghostMode: { members: [], message: "No ghosts yet.", cta: "" },
+        mvp: { name: u.name || "You", workouts: 0, prs: 0, evolutionDelta: 0 },
+        unreadNotifications: 0,
+      };
+      return res.json(squadPayload);
+    }
+
+    // ── GET /api/progress ───────────────────────────────────────────────────
+    // Progress tab payload. Returns intro/onboarding state until the user
+    // takes their first progress scan.
+    if (path === "/progress") {
+      if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      const isFemale = u.sex === "female";
+      const progressPayload = {
+        user: { name: u.name || "Friend", sex: u.sex || "unspecified", isFemale },
+        intro: {
+          title: "Track your transformation",
+          subtitle: "Snap a weekly progress photo. We'll render a clean silhouette and chart your real changes over time.",
+        },
+        scanHero: {
+          title: "Take your first scan",
+          body: "Stand in good lighting, arms slightly out, palms forward. Front view works best.",
+          ctaText: "Take Progress Photo",
+          buttonLabel: "Take Photo",
+          photoUrl: null,
+          renderUrl: null,
+          silhouetteParams: null,
+          buildLabel: null,
+          bodyFatPct: null,
+          muscleMassPct: null,
+        },
+        steps: [
+          { number: 1, title: "Snap weekly", blurb: "One photo a week, same lighting and angle." },
+          { number: 2, title: "AI render", blurb: "We turn it into a clean silhouette in seconds." },
+          { number: 3, title: "See change", blurb: "Side-by-side scans show real progress, not vibes." },
+        ],
+        recentScans: [],
+        hasScan: false,
+      };
+      return res.json(progressPayload);
+    }
+
+    // ── GET /api/workout-categories ─────────────────────────────────────────
+    // LogWorkout tab payload — list of category tiles.
+    if (path === "/workout-categories") {
+      if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      const categoriesPayload = {
+        sex: u.sex || "unspecified",
+        categories: [
+          { key: "push",      name: "Push",      summary: "Chest, shoulders, triceps", icon: "💪" },
+          { key: "pull",      name: "Pull",      summary: "Back, biceps, rear delts",    icon: "🪝" },
+          { key: "legs",      name: "Legs",      summary: "Quads, glutes, hamstrings",   icon: "🦵" },
+          { key: "core",      name: "Core",      summary: "Abs, obliques, lower back",   icon: "🔥" },
+          { key: "fullbody",  name: "Full Body", summary: "Compound lifts, conditioning", icon: "⚡" },
+          { key: "cardio",    name: "Cardio",    summary: "Run, row, cycle, HIIT",        icon: "🏃" },
+        ],
+      };
+      return res.json(categoriesPayload);
     }
 
     // ── POST /api/unlock ─────────────────────────────────────────────────────
