@@ -104,7 +104,53 @@ async function ensureTables(pool: Pool) {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS form_rank TEXT NOT NULL DEFAULT 'Newbie';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS xp_to_next INTEGER NOT NULL DEFAULT 100;
+    -- Flexin workouts log. One row per completed workout. The Home dashboard
+    -- tiles "TRAINING DAYS" and "TOTAL WORKOUTS" are computed from this table
+    -- (per-user, current calendar month).
+    CREATE TABLE IF NOT EXISTS workouts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category TEXT NOT NULL,
+      exercise_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+      duration_seconds INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
+      completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_workouts_user_time
+      ON workouts (user_id, completed_at DESC);
   `);
+}
+
+// ── Workout dashboard stats ─────────────────────────────────────────────────
+// Computes the "This month" tiles shown on Home: TRAINING DAYS is the count
+// of distinct calendar days with at least one logged workout, TOTAL WORKOUTS
+// is the count of workout rows. Both are scoped to the current calendar
+// month in UTC and to the given user. Safe to call even if the workouts
+// table is brand new (returns zeros).
+async function computeMonthStats(pool: any, userId: number) {
+  try {
+    const r = await pool.query(
+      `SELECT
+         COUNT(*)::int AS total_workouts,
+         COUNT(DISTINCT (completed_at AT TIME ZONE 'UTC')::date)::int AS training_days
+       FROM workouts
+       WHERE user_id = $1
+         AND completed_at >= date_trunc('month', NOW())
+         AND completed_at <  date_trunc('month', NOW()) + INTERVAL '1 month'`,
+      [userId]
+    );
+    const row = r.rows[0] || {};
+    return {
+      trainingDays: Number(row.training_days) || 0,
+      totalWorkouts: Number(row.total_workouts) || 0,
+      caloriesBurned: 0,
+      avgFormScore: 0,
+      unreadAlerts: 0,
+    };
+  } catch (e) {
+    console.error("[computeMonthStats] failed", e);
+    return { trainingDays: 0, totalWorkouts: 0, caloriesBurned: 0, avgFormScore: 0, unreadAlerts: 0 };
+  }
 }
 
 // ── Group helpers ───────────────────────────────────────────────────────────
@@ -364,10 +410,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ],
         energy: { percent: 100, message: "Fresh start — let's go" },
         weeklyScanDaysLeft: 7,
-        monthStats: {
-          trainingDays: 0, totalWorkouts: 0, caloriesBurned: 0,
-          avgFormScore: 0, unreadAlerts: 0,
-        },
+        monthStats: await computeMonthStats(pool, u.id),
         activeSquad: {
           id: 0, name: "", energy: 0, memberCount: 0,
           mvp: { userId: 0, name: "", contribution: 0 },
@@ -616,18 +659,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // ── POST /api/workout ────────────────────────────────────────────────────────
-    // Records a completed workout. Currently stubbed to return success so
-    // the SelectExercises -> COMPLETE WORKOUT flow can round-trip cleanly.
+    // ── POST /api/workout ───────────────────────────────────────────────────
+    // Records a completed workout. Inserts a row in `workouts` so the Home
+    // dashboard tiles "TRAINING DAYS" and "TOTAL WORKOUTS" can be computed
+    // from real data instead of always returning 0.
     if (path === "/workout") {
       if (method !== "POST") return res.status(405).json({ error: "Method not allowed" });
       if (!email) return res.status(401).json({ error: "Sign in required" });
       const body = (req.body || {}) as { category?: string; exerciseNames?: string[]; durationSeconds?: number; notes?: string | null };
+      const row = await getOrCreate(pool, email);
+      const user = rowToUser(row);
+      const category = (body.category || "").trim() || "custom";
+      const names = Array.isArray(body.exerciseNames) ? body.exerciseNames.filter((s) => typeof s === "string" && s.trim()) : [];
+      const durationSeconds = Number.isFinite(body.durationSeconds) ? Math.max(0, Math.floor(body.durationSeconds as number)) : 0;
+      const notes = typeof body.notes === "string" ? body.notes : null;
+      const insertRes = await pool.query(
+        `INSERT INTO workouts (user_id, category, exercise_names, duration_seconds, notes, completed_at)
+         VALUES ($1, $2, $3::jsonb, $4, $5, NOW())
+         RETURNING id, category, exercise_names, duration_seconds, completed_at`,
+        [user.id, category, JSON.stringify(names), durationSeconds, notes]
+      );
       return res.json({
         ok: true,
-        category: body.category || "",
-        exerciseCount: Array.isArray(body.exerciseNames) ? body.exerciseNames.length : 0,
-        loggedAt: new Date().toISOString(),
+        workout: insertRes.rows[0],
+        category,
+        exerciseCount: names.length,
+        loggedAt: insertRes.rows[0].completed_at,
       });
     }
 

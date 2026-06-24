@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn } from "@/lib/queryClient";
@@ -23,6 +23,11 @@ interface LogWorkoutProps {
 export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
   const t = useTheme();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Ref on the Continue CTA so tapping a day auto-scrolls it into view.
+  // The button lives below the day tiles, so on tall lists the user can't
+  // see it without scrolling. Smooth-scroll on selection makes the next
+  // action obvious.
+  const ctaRef = useRef<HTMLButtonElement | null>(null);
   // User-added custom workout days, persisted in localStorage so they
   // survive navigation between Home and LogWorkout.
   const [customDays, setCustomDays] = useState<Category[]>(() => {
@@ -108,6 +113,11 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
                   return;
                 }
                 setSelectedKey(cat.key);
+                // Scroll the CTA into view so the user immediately sees the
+                // next step instead of having to hunt for it.
+                requestAnimationFrame(() => {
+                  ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+                });
               }}
               style={{
                 background: isSelected
@@ -144,9 +154,12 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
         })}
       </div>
 
-      {/* COMPLETE WORKOUT CTA — proceeds to Select Exercises for the chosen category */}
+      {/* CTA — proceeds to Select Exercises for the chosen category. The
+          actual "Complete Workout" press lives on the next screen after the
+          user checks which exercises they did. */}
       <div style={{ padding: "18px 14px 0" }}>
         <button
+          ref={ctaRef}
           onClick={() => selected && onSelectCategory(selected)}
           disabled={!selected}
           style={{
@@ -158,8 +171,9 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
             opacity: selected ? 1 : 0.5,
             boxShadow: `0 12px 32px ${t.accentGlow}`,
           }}
+          data-testid="log-workout-continue"
         >
-          <BoltIcon color={t.accentText} /> COMPLETE WORKOUT
+          <BoltIcon color={t.accentText} /> {selected ? `CONTINUE → ${selected.name.toUpperCase()}` : "SELECT A DAY"}
         </button>
       </div>
 
