@@ -6,6 +6,7 @@
     { "source": "/api/signup", "destination": "/api/handler" },
     { "source": "/api/login", "destination": "/api/handler" },
     { "source": "/api/unlock", "destination": "/api/handler" },
+    { "source": "/api/dashboard", "destination": "/api/handler" },
     { "source": "/api/logout", "destination": "/api/handler" },
     { "source": "/api/sessions", "destination": "/api/handler" },
     { "source": "/api/journal", "destination": "/api/handler" },
