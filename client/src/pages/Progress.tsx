@@ -1,7 +1,9 @@
 import React, { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, API_BASE, getUserEmail } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
 import {
   SilhouetteSVG,
@@ -76,21 +78,21 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const userEmail =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("flexin_user_email") || "").trim()
-      : "";
-
-  async function handlePhotoSelected(file: File) {
+  // Push the bytes (as JSON base64) up to the API. We use JSON instead of
+  // multipart because Vercel serverless functions handle JSON natively and
+  // we don't need the multipart parser for a single image field.
+  async function uploadDataUrl(dataUrl: string) {
     setUploadError(null);
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("photo", file);
-      const resp = await fetch("/api/progress/scan", {
+      const email = getUserEmail();
+      const resp = await fetch(`${API_BASE}/api/progress/scan`, {
         method: "POST",
-        body: fd,
-        headers: userEmail ? { "x-user-email": userEmail } : undefined,
+        headers: {
+          "Content-Type": "application/json",
+          ...(email ? { "x-user-email": email } : {}),
+        },
+        body: JSON.stringify({ photoDataUrl: dataUrl }),
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Upload failed" }));
@@ -103,6 +105,59 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
       setUploadError(e?.message || "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  // Convert a File (web) to data URL so the upload path is identical to native
+  async function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handlePhotoSelected(file: File) {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await uploadDataUrl(dataUrl);
+    } catch (e: any) {
+      setUploadError(e?.message || "Couldn't read photo");
+    }
+  }
+
+  // Native (iOS) capture path — uses the Capacitor Camera plugin so the
+  // OS-native action sheet (Take Photo / Choose from Library) appears with
+  // proper permission prompts.
+  async function handleTakePhoto() {
+    if (!Capacitor.isNativePlatform()) {
+      fileInputRef.current?.click();
+      return;
+    }
+    setUploadError(null);
+    try {
+      const result = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Prompt, // shows Take Photo / Choose from Photos sheet
+        saveToGallery: false,
+        promptLabelHeader: "Progress Photo",
+        promptLabelPhoto: "Choose from Photos",
+        promptLabelPicture: "Take Photo",
+      });
+      const dataUrl = result?.dataUrl;
+      if (!dataUrl) {
+        setUploadError("No photo returned");
+        return;
+      }
+      await uploadDataUrl(dataUrl);
+    } catch (e: any) {
+      // User cancel returns an error with message like 'User cancelled photos app'
+      const msg = String(e?.message || e || "");
+      if (/cancel/i.test(msg)) return; // silent cancel
+      setUploadError(msg || "Couldn't open camera");
     }
   }
 
@@ -311,7 +366,7 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
 
           {/* Big CTA */}
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => handleTakePhoto()}
             disabled={uploading}
             style={{
               width: "100%",

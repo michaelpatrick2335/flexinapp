@@ -12,6 +12,7 @@
     { "source": "/api/workout-categories", "destination": "/api/handler" },
     { "source": "/api/exercises", "destination": "/api/handler" },
     { "source": "/api/workout", "destination": "/api/handler" },
+    { "source": "/api/progress/scan", "destination": "/api/handler" },
     { "source": "/api/logout", "destination": "/api/handler" },
     { "source": "/api/sessions", "destination": "/api/handler" },
     { "source": "/api/journal", "destination": "/api/handler" },

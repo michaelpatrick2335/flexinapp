@@ -18,9 +18,10 @@ interface GoalBodyTypeModalProps {
   sex: "male" | "female" | string;
   initialGoal?: string | null;
   onSaved: (goalAvatarBodyType: string) => void;
+  onDismiss?: () => void;
 }
 
-export function GoalBodyTypeModal({ sex, initialGoal, onSaved }: GoalBodyTypeModalProps) {
+export function GoalBodyTypeModal({ sex, initialGoal, onSaved, onDismiss }: GoalBodyTypeModalProps) {
   const t = useTheme();
   const [selectedId, setSelectedId] = useState<string | null>(initialGoal ?? null);
   const [saving, setSaving] = useState(false);
@@ -65,6 +66,22 @@ export function GoalBodyTypeModal({ sex, initialGoal, onSaved }: GoalBodyTypeMod
         overflowY: "auto",
       }}
     >
+      {/* Close (skip) button */}
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          aria-label="Skip"
+          data-testid="goal-modal-skip"
+          style={{
+            position: "absolute", top: "max(18px, env(safe-area-inset-top))", right: 18,
+            width: 36, height: 36, borderRadius: 18,
+            background: t.bgElevated, color: t.text, border: `1px solid ${t.border}`,
+            display: "grid", placeItems: "center", cursor: "pointer", padding: 0,
+            fontSize: 18, fontWeight: 700,
+          }}
+        >×</button>
+      )}
+
       <div style={{ padding: "0 18px 6px", textAlign: "center" }}>
         <div
           style={{

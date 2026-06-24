@@ -501,6 +501,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ category, sex: u.sex || "unspecified", isFemale, exercises });
     }
 
+    // ── POST /api/progress/scan ──────────────────────────────────────────
+    // Accepts a base64 photo data URL and (for now) returns a stub render
+    // URL so the Progress UI can refresh with a visible "first scan" state.
+    // The actual AI body render is a follow-up milestone.
+    if (path === "/progress/scan") {
+      if (method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const body = (req.body || {}) as { photoDataUrl?: string };
+      const dataUrl = (body.photoDataUrl || "").trim();
+      if (!dataUrl.startsWith("data:image/")) {
+        return res.status(400).json({ error: "photoDataUrl must be a base64 image data URL" });
+      }
+      // Sanity cap to avoid massive payloads (8 MB base64 ≈ 6 MB raw)
+      if (dataUrl.length > 8_000_000) {
+        return res.status(413).json({ error: "Photo too large — try a smaller image" });
+      }
+      // TODO: persist to blob storage + queue AI render. For now we just
+      // acknowledge the upload so the UI can re-fetch progress.
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      return res.json({
+        ok: true,
+        scanId: Date.now(),
+        receivedBytes: dataUrl.length,
+        // Echo back the same image as the "photo" so the UI shows what we got
+        photoUrl: dataUrl,
+        // Render URL is null — the AI render step is the next milestone.
+        renderUrl: null,
+        status: "queued",
+        user: { id: u.id, name: u.name, sex: u.sex },
+        receivedAt: new Date().toISOString(),
+      });
+    }
+
     // ── POST /api/workout ────────────────────────────────────────────────────────
     // Records a completed workout. Currently stubbed to return success so
     // the SelectExercises -> COMPLETE WORKOUT flow can round-trip cleanly.

@@ -7,6 +7,7 @@ import silhouetteFemale from "@/assets/silhouette_female.png";
 import flexinLogo from "@/assets/flexin_logo.png";
 import { avatarImageFor } from "@/lib/avatars";
 import { GoalBodyTypeModal } from "@/components/GoalBodyTypeModal";
+import { getUserEmail } from "@/lib/queryClient";
 
 // ── Types matching /api/dashboard response ────────────────────────────────
 interface DashboardPayload {
@@ -59,15 +60,15 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     staleTime: 60_000,
   });
 
-  // First-login goal body type prompt. We optimistically dismiss it once the
-  // user picks so they don't get re-prompted while the dashboard refetches.
-  // Persist dismissal in sessionStorage so navigating to a tab and tapping
-  // "back" doesn't make the modal pop again before the dashboard refetches.
+  // First-login goal body type prompt. Dismissal is keyed by user email
+  // in localStorage so the modal only ever shows once per user on this
+  // device — never re-pops when the user taps Home from the bottom nav.
+  const dismissKey = `flexin.goalDismissed:${getUserEmail() || "anon"}`;
   const [goalDismissed, setGoalDismissed] = useState<boolean>(() => {
-    try { return sessionStorage.getItem("flexin.goalDismissed") === "1"; } catch { return false; }
+    try { return localStorage.getItem(dismissKey) === "1"; } catch { return false; }
   });
   function dismissGoalModal() {
-    try { sessionStorage.setItem("flexin.goalDismissed", "1"); } catch {}
+    try { localStorage.setItem(dismissKey, "1"); } catch {}
     setGoalDismissed(true);
   }
 
@@ -95,6 +96,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
           sex={user.sex === "female" ? "female" : "male"}
           initialGoal={user.goalAvatarBodyType ?? null}
           onSaved={() => dismissGoalModal()}
+          onDismiss={() => dismissGoalModal()}
         />
       )}
 
