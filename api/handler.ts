@@ -517,19 +517,90 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (dataUrl.length > 8_000_000) {
         return res.status(413).json({ error: "Photo too large — try a smaller image" });
       }
-      // TODO: persist to blob storage + queue AI render. For now we just
-      // acknowledge the upload so the UI can re-fetch progress.
       const row = await getOrCreate(pool, email);
       const u = rowToUser(row);
+
+      // Parse the data URL into mime + base64 payload for Gemini
+      const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
+      if (!m) return res.status(400).json({ error: "Invalid data URL" });
+      const inputMime = m[1];
+      const inputBase64 = m[2];
+
+      // Build the render prompt. We bias toward a clean, brand-aligned look
+      // (dark background, blue rim light) and the user's recorded sex so the
+      // output silhouette matches their identity.
+      const sex = (u.sex || "unspecified").toLowerCase();
+      const sexHint = sex === "female" ? "a woman" : sex === "male" ? "a man" : "the person";
+      const prompt = [
+        `Render ${sexHint} from this progress photo as a clean, full-body fitness silhouette.`,
+        "Keep the same body proportions, height, and pose.",
+        "Style: athletic profile silhouette, deep navy/black background, subtle electric-blue rim light along the muscles,",
+        "smooth modern look like a premium fitness app illustration.",
+        "No face details, no logos, no text. Clean studio lighting. Centered.",
+        "Output a single high-quality image.",
+      ].join(" ");
+
+      // Call Google Gemini (gemini-2.5-flash-image, aka "Nano Banana"). If
+      // GOOGLE_API_KEY isn't set the function falls back to a stub response
+      // so the UI still works end-to-end.
+      const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+      let renderUrl: string | null = null;
+      let renderError: string | null = null;
+      let status: "rendered" | "failed" | "stub" = "stub";
+
+      if (apiKey) {
+        try {
+          const model = "gemini-2.5-flash-image";
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const geminiBody = {
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: prompt },
+                  { inlineData: { mimeType: inputMime, data: inputBase64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ["IMAGE"],
+            },
+          };
+          const r = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(geminiBody),
+          });
+          const j: any = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            renderError = j?.error?.message || `Gemini error (${r.status})`;
+            status = "failed";
+          } else {
+            const parts: any[] = j?.candidates?.[0]?.content?.parts || [];
+            const imgPart = parts.find((p) => p?.inlineData?.data);
+            if (imgPart?.inlineData?.data) {
+              const outMime = imgPart.inlineData.mimeType || "image/png";
+              renderUrl = `data:${outMime};base64,${imgPart.inlineData.data}`;
+              status = "rendered";
+            } else {
+              renderError = j?.candidates?.[0]?.finishReason || "No image returned";
+              status = "failed";
+            }
+          }
+        } catch (e: any) {
+          renderError = e?.message || "Gemini call failed";
+          status = "failed";
+        }
+      }
+
       return res.json({
         ok: true,
         scanId: Date.now(),
         receivedBytes: dataUrl.length,
-        // Echo back the same image as the "photo" so the UI shows what we got
         photoUrl: dataUrl,
-        // Render URL is null — the AI render step is the next milestone.
-        renderUrl: null,
-        status: "queued",
+        renderUrl,
+        status,
+        renderError,
         user: { id: u.id, name: u.name, sex: u.sex },
         receivedAt: new Date().toISOString(),
       });

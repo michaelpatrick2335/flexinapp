@@ -78,9 +78,8 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Push the bytes (as JSON base64) up to the API. We use JSON instead of
-  // multipart because Vercel serverless functions handle JSON natively and
-  // we don't need the multipart parser for a single image field.
+  // Push the bytes (as JSON base64) up to the API. The endpoint runs the
+  // photo through Gemini and returns { photoUrl, renderUrl, status }.
   async function uploadDataUrl(dataUrl: string) {
     setUploadError(null);
     setUploading(true);
@@ -98,9 +97,52 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
         const err = await resp.json().catch(() => ({ error: "Upload failed" }));
         throw new Error(err.error || `Upload failed (${resp.status})`);
       }
-      // Invalidate Progress + Dashboard so silhouette + muscle bars refresh
-      await qc.invalidateQueries({ queryKey: ["/api/progress"] });
+      const result = await resp.json().catch(() => ({} as any));
+
+      // Splice the photo + render straight into the Progress query cache so
+      // the user sees their photo + AI render right away — we don't yet
+      // persist scans server-side, so a refetch would lose them.
+      qc.setQueryData(["/api/progress"], (prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          hasScan: true,
+          scanHero: {
+            ...prev.scanHero,
+            title: result?.status === "rendered" ? "Your scan" : "Scan received",
+            body:
+              result?.status === "rendered"
+                ? "Here's your fitness render. Take another photo next week to see your progress."
+                : result?.renderError
+                  ? `Couldn't render this one (${result.renderError}). Photo saved — try another angle.`
+                  : "Photo saved. Take another next week to track your change.",
+            buttonLabel: "Take Another Photo",
+            photoUrl: result?.photoUrl ?? dataUrl,
+            renderUrl: result?.renderUrl ?? null,
+          },
+          recentScans: [
+            {
+              id: result?.scanId || Date.now(),
+              date: new Date().toISOString().slice(0, 10),
+              dateLabel: "Just now",
+              isLatest: true,
+              intensity: 0.7,
+              photoUrl: result?.photoUrl ?? dataUrl,
+            },
+            ...((prev.recentScans || []).map((s: any) => ({ ...s, isLatest: false }))),
+          ],
+        };
+      });
+
+      // Also refresh the dashboard for muscle bars etc.
       await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+
+      // Surface render errors as a non-fatal banner (photo is still saved)
+      if (result?.status === "failed" && result?.renderError) {
+        setUploadError(`AI render failed: ${result.renderError}`);
+      } else if (result?.status === "stub") {
+        setUploadError("AI render not configured (add GOOGLE_API_KEY to enable).");
+      }
     } catch (e: any) {
       setUploadError(e?.message || "Upload failed");
     } finally {
