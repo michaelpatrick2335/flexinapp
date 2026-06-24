@@ -23,6 +23,16 @@ interface LogWorkoutProps {
 export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
   const t = useTheme();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // User-added custom workout days, persisted in localStorage so they
+  // survive navigation between Home and LogWorkout.
+  const [customDays, setCustomDays] = useState<Category[]>(() => {
+    try {
+      const raw = localStorage.getItem("flexin.customDays");
+      return raw ? (JSON.parse(raw) as Category[]) : [];
+    } catch { return []; }
+  });
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addDraft, setAddDraft] = useState("");
 
   const { data } = useQuery<CategoriesPayload>({
     queryKey: ["/api/workout-categories"],
@@ -30,8 +40,26 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
     staleTime: 5 * 60_000,
   });
 
-  const categories = data?.categories || [];
+  // Server-provided day tiles first, then any custom days the user has added.
+  const baseCategories = data?.categories || [];
+  const categories = [...baseCategories, ...customDays];
   const selected = categories.find((c) => c.key === selectedKey) ?? categories[0];
+
+  function persistCustom(next: Category[]) {
+    setCustomDays(next);
+    try { localStorage.setItem("flexin.customDays", JSON.stringify(next)); } catch {}
+  }
+
+  function handleAddDay() {
+    const v = addDraft.trim();
+    if (!v) { setShowAddDialog(false); return; }
+    const key = `custom-${Date.now()}`;
+    const newDay: Category = { key, name: v, summary: "Custom day", icon: "plus" };
+    persistCustom([...customDays, newDay]);
+    setSelectedKey(key);
+    setAddDraft("");
+    setShowAddDialog(false);
+  }
 
   return (
     <div style={{
@@ -55,8 +83,34 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
         </button>
         <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>LOG WORKOUT</div>
       </div>
-      <div style={{ textAlign: "center", color: t.textMuted, fontSize: 14, marginTop: 4, marginBottom: 18 }}>
+      <div style={{ textAlign: "center", color: t.textMuted, fontSize: 14, marginTop: 4, marginBottom: 14 }}>
         What are we training today?
+      </div>
+
+      {/* Add Workout button — lets user add a custom workout day to the list */}
+      <div style={{ padding: "0 14px 12px" }}>
+        <button
+          onClick={() => { setAddDraft(""); setShowAddDialog(true); }}
+          data-testid="add-workout-day"
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: 14,
+            border: `1px dashed ${t.accent}`,
+            background: "transparent",
+            color: t.accent,
+            fontSize: 14,
+            fontWeight: 800,
+            letterSpacing: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            cursor: "pointer",
+          }}
+        >
+          <PlusIcon color={t.accent} /> ADD WORKOUT
+        </button>
       </div>
 
       {/* Category tiles */}
@@ -120,7 +174,73 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
           <BoltIcon color={t.accentText} /> COMPLETE WORKOUT
         </button>
       </div>
+
+      {/* Add custom workout day dialog */}
+      {showAddDialog && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 24, zIndex: 9999,
+          }}
+          onClick={() => setShowAddDialog(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: t.bgElevated, color: t.text, borderRadius: 18,
+              padding: 20, width: "100%", maxWidth: 360,
+              border: `1px solid ${t.border}`,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: t.textMuted, marginBottom: 6 }}>NEW WORKOUT DAY</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Name your workout</div>
+            <input
+              value={addDraft}
+              onChange={(e) => setAddDraft(e.target.value)}
+              placeholder="e.g. Arms & Abs"
+              autoFocus
+              style={{
+                width: "100%", padding: "12px 14px", borderRadius: 12,
+                border: `1px solid ${t.border}`, background: t.bg, color: t.text,
+                fontSize: 15, outline: "none", marginBottom: 14,
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAddDay(); }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setShowAddDialog(false)}
+                style={{
+                  flex: 1, padding: "12px 14px", borderRadius: 12,
+                  background: "transparent", border: `1px solid ${t.border}`, color: t.text,
+                  fontSize: 14, fontWeight: 700, cursor: "pointer",
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleAddDay}
+                disabled={!addDraft.trim()}
+                style={{
+                  flex: 1, padding: "12px 14px", borderRadius: 12, border: "none",
+                  background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                  color: t.accentText, fontSize: 14, fontWeight: 800, cursor: "pointer",
+                  opacity: addDraft.trim() ? 1 : 0.6,
+                }}
+              >Add</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function PlusIcon({ color, size = 16 }: { color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -188,6 +308,23 @@ function CategoryIcon({ icon, color, size = 24 }: { icon: string; color: string;
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
           <path d="M12 6v8M7 9l5-1 5 1M9 14v8M15 14v8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "body":
+      // Full body — standing person
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
+          <path d="M12 6v8M9 14v8M15 14v8M8 9l4-1 4 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "plus":
+      // Custom day — person + plus marker
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <circle cx="10" cy="5" r="2" stroke={color} strokeWidth="1.8" />
+          <path d="M10 7v8M8 15v6M12 15v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M17 4h5M19.5 1.5v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       );
     case "custom":

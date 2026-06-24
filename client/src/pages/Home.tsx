@@ -61,7 +61,15 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 
   // First-login goal body type prompt. We optimistically dismiss it once the
   // user picks so they don't get re-prompted while the dashboard refetches.
-  const [goalDismissed, setGoalDismissed] = useState(false);
+  // Persist dismissal in sessionStorage so navigating to a tab and tapping
+  // "back" doesn't make the modal pop again before the dashboard refetches.
+  const [goalDismissed, setGoalDismissed] = useState<boolean>(() => {
+    try { return sessionStorage.getItem("flexin.goalDismissed") === "1"; } catch { return false; }
+  });
+  function dismissGoalModal() {
+    try { sessionStorage.setItem("flexin.goalDismissed", "1"); } catch {}
+    setGoalDismissed(true);
+  }
 
   if (isLoading || !data) {
     return (
@@ -86,7 +94,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
         <GoalBodyTypeModal
           sex={user.sex === "female" ? "female" : "male"}
           initialGoal={user.goalAvatarBodyType ?? null}
-          onSaved={() => setGoalDismissed(true)}
+          onSaved={() => dismissGoalModal()}
         />
       )}
 

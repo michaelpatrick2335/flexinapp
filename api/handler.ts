@@ -458,7 +458,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── GET /api/workout-categories ─────────────────────────────────────────
-    // LogWorkout tab payload — list of category tiles.
+    // LogWorkout tab payload — list of day tiles (matches v1 mockup).
     if (path === "/workout-categories") {
       if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
       if (!email) return res.status(401).json({ error: "Sign in required" });
@@ -467,15 +467,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const categoriesPayload = {
         sex: u.sex || "unspecified",
         categories: [
-          { key: "push",      name: "Push",      summary: "Chest, shoulders, triceps", icon: "💪" },
-          { key: "pull",      name: "Pull",      summary: "Back, biceps, rear delts",    icon: "🪝" },
-          { key: "legs",      name: "Legs",      summary: "Quads, glutes, hamstrings",   icon: "🦵" },
-          { key: "core",      name: "Core",      summary: "Abs, obliques, lower back",   icon: "🔥" },
-          { key: "fullbody",  name: "Full Body", summary: "Compound lifts, conditioning", icon: "⚡" },
-          { key: "cardio",    name: "Cardio",    summary: "Run, row, cycle, HIIT",        icon: "🏃" },
+          { key: "push",     name: "Push Day",   summary: "Chest, Shoulders, Triceps", icon: "bolt"    },
+          { key: "pull",     name: "Pull Day",   summary: "Back, Biceps",              icon: "pull"    },
+          { key: "legs",     name: "Leg Day",    summary: "Quads, Hamstrings, Calves", icon: "legs"    },
+          { key: "fullbody", name: "Full Body",  summary: "Everything",                icon: "body"    },
+          { key: "custom",   name: "Custom Day", summary: "Build your own",            icon: "plus"    },
         ],
       };
       return res.json(categoriesPayload);
+    }
+
+    // ── GET /api/exercises?category=push ────────────────────────────────────
+    // Returns the built-in exercise list for a given category. Matches the
+    // v1 SelectExercises mockup so users see a real list immediately.
+    if (path === "/exercises") {
+      if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      const isFemale = u.sex === "female";
+      const category = String(req.query.category || "push").toLowerCase();
+      const byCategory: Record<string, string[]> = {
+        push:     ["Bench Press", "Incline Press", "Chest Fly", "Shoulder Press", "Lateral Raises", "Tricep Dips", "Skull Crushers", "Cable Pushdown", "Push-Up"],
+        pull:     ["Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Face Pull", "Bicep Curl", "Hammer Curl", "Preacher Curl", "Reverse Fly"],
+        legs:     ["Back Squat", "Front Squat", "Romanian Deadlift", "Leg Press", "Walking Lunge", "Hip Thrust", "Leg Curl", "Leg Extension", "Calf Raise"],
+        fullbody: ["Deadlift", "Back Squat", "Bench Press", "Pull-Up", "Overhead Press", "Barbell Row", "Lunge", "Plank", "Burpee"],
+        custom:   [],
+      };
+      const names = byCategory[category] ?? byCategory.fullbody;
+      const exercises = names.map((name, i) => ({
+        id: i + 1, name, category, sexTarget: isFemale ? "female" : "male", isCustom: false,
+      }));
+      return res.json({ category, sex: u.sex || "unspecified", isFemale, exercises });
+    }
+
+    // ── POST /api/workout ────────────────────────────────────────────────────────
+    // Records a completed workout. Currently stubbed to return success so
+    // the SelectExercises -> COMPLETE WORKOUT flow can round-trip cleanly.
+    if (path === "/workout") {
+      if (method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const body = (req.body || {}) as { category?: string; exerciseNames?: string[]; durationSeconds?: number; notes?: string | null };
+      return res.json({
+        ok: true,
+        category: body.category || "",
+        exerciseCount: Array.isArray(body.exerciseNames) ? body.exerciseNames.length : 0,
+        loggedAt: new Date().toISOString(),
+      });
     }
 
     // ── POST /api/unlock ─────────────────────────────────────────────────────
