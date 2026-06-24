@@ -141,22 +141,28 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
       className="min-h-screen flex flex-col items-center justify-start px-5 py-8 overflow-y-auto relative"
       style={{ background: "#000" }}
     >
-      {/* Header — logo with blue glow ring + description. Logo is sized large
-          enough that the full "flexin" wordmark sits comfortably inside the
-          circle on a standard iPhone width. */}
+      {/* Header — logo with blue glow ring + description. Circle is sized
+          large enough that the full "flexin" wordmark sits comfortably
+          inside (no edge cropping). We use objectFit: contain so the
+          wordmark is never cut off by the circular mask. */}
       <div className="flex flex-col items-center text-center mb-6">
         <div
           style={{
-            width: 180,
-            height: 180,
+            width: 260,
+            height: 260,
             borderRadius: "50%",
             overflow: "hidden",
             marginBottom: 22,
             border: `2px solid ${BLUE}`,
             boxShadow: `0 0 32px ${BLUE_GLOW}, 0 0 70px ${BLUE_SOFT}`,
+            background: "#000",
           }}
         >
-          <img src={flexinCircle} alt="Flexin" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img
+            src={flexinCircle}
+            alt="Flexin"
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
         </div>
         <p className="text-sm mt-2 max-w-xs" style={{ color: "#cbd5e1", lineHeight: 1.5 }}>
           <span style={{ color: BLUE, fontWeight: 600 }}>Flexin</span> is about showing up for your squad — build strength, discipline, and accountability together.

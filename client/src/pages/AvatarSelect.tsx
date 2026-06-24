@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/lib/ThemeProvider";
 import { avatarsForSex, type AvatarOption } from "@/lib/avatars";
 
@@ -33,6 +33,20 @@ export function AvatarSelect({
 
   const avatars = avatarsForSex(sex);
   const canContinue = !!selectedId;
+
+  // When the user picks an avatar, smoothly scroll the Continue button into
+  // view so it's obvious where to tap next. Without this, on smaller phones
+  // the bottom button can be off-screen below the grid.
+  const continueRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (selectedId && continueRef.current) {
+      try {
+        continueRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+      } catch {
+        continueRef.current.scrollIntoView(false);
+      }
+    }
+  }, [selectedId]);
 
   return (
     <div
@@ -128,6 +142,7 @@ export function AvatarSelect({
 
       {/* Sticky-ish continue at bottom */}
       <div
+        ref={continueRef}
         style={{
           position: "sticky",
           bottom: 0,

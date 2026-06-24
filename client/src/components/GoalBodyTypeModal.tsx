@@ -161,17 +161,33 @@ export function GoalBodyTypeModal({ sex, initialGoal, onSaved, onDismiss }: Goal
               >
                 {idx + 1}
               </div>
-              <img
-                src={a.image}
-                alt={a.label}
+              {/* Avatar fills the card. We use aspectRatio 3/4 (matches the
+                  AvatarSelect grid) and objectFit: cover so the silhouette
+                  fills the box edge-to-edge, like the on-boarding screen. */}
+              <div
                 style={{
                   width: "100%",
-                  maxWidth: 110,
-                  height: 110,
-                  objectFit: "contain",
-                  filter: isSelected ? "drop-shadow(0 4px 10px rgba(0,0,0,0.35))" : "none",
+                  aspectRatio: "3 / 4",
+                  background: "#000",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
-              />
+              >
+                <img
+                  src={a.image}
+                  alt={a.label}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                    filter: isSelected ? "drop-shadow(0 4px 10px rgba(0,0,0,0.35))" : "none",
+                  }}
+                />
+              </div>
               <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4 }}>{a.label}</div>
               <div
                 style={{
