@@ -8,6 +8,7 @@ import flexinLogo from "@/assets/flexin_logo.png";
 import { avatarImageFor } from "@/lib/avatars";
 import { GoalBodyTypeModal } from "@/components/GoalBodyTypeModal";
 import { getUserEmail } from "@/lib/queryClient";
+import { getFeed, minutesAgo } from "@/lib/feed";
 
 // ── Types matching /api/dashboard response ────────────────────────────────
 interface DashboardPayload {
@@ -81,6 +82,24 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   }
 
   const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, squadFeed, evolutionTimeline } = data;
+
+  // Merge any client-side feed events (squad creation, workout logs) onto
+  // the server feed so the dashboard's SQUAD FEED card actually populates.
+  // Today the server returns []; once a feed table lands we can flip this
+  // to server-only and delete the merge.
+  const mergedFeed = React.useMemo(() => {
+    const local = getFeed(getUserEmail() || "anon")
+      .map((e) => ({
+        id: e.id,
+        userName: e.userName,
+        message: e.message,
+        kind: e.kind,
+        energyDelta: e.energyDelta,
+        reactions: e.reactions,
+        minutesAgo: minutesAgo(e.createdAt),
+      }));
+    return [...local, ...squadFeed];
+  }, [squadFeed]);
   const xpPct = Math.min(100, Math.round((user.xp / user.xpToNext) * 100));
   // Resolve the chosen body-type avatar; fall back to legacy silhouette if unset.
   const silhouette = user.avatarBodyType
@@ -122,7 +141,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 
       {/* ═════════════════════ SQUAD FEED + EVOLUTION (side by side) ═════════════════════ */}
       <div style={{ padding: "18px 14px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <SquadFeedCard t={t} feed={squadFeed} onOpenFeed={onOpenFeed} onOpenSquad={onOpenSquad} />
+        <SquadFeedCard t={t} feed={mergedFeed} onOpenFeed={onOpenFeed} onOpenSquad={onOpenSquad} />
         <EvolutionCard t={t} timeline={evolutionTimeline} silhouette={silhouette} isFemale={isFemale} onOpenProgress={onOpenProgress} />
       </div>
 
@@ -331,6 +350,11 @@ function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: Das
         </button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {feed.length === 0 && (
+          <div style={{ color: t.textMuted, fontSize: 11, lineHeight: 1.4 }}>
+            No activity yet. Tap to name your squad and log your first workout.
+          </div>
+        )}
         {feed.slice(0, 4).map((f) => (
           <div key={f.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
             <div style={{

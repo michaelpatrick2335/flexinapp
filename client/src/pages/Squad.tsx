@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn, getUserEmail } from "@/lib/queryClient";
+import { getQueryFn, getUserEmail, queryClient } from "@/lib/queryClient";
+import { pushFeedEvent } from "@/lib/feed";
 import flexinLogo from "@/assets/flexin_logo.png";
 import maxMale from "@/assets/max_male.png";
 import maxFemale from "@/assets/max_female.png";
@@ -111,13 +112,28 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   function saveNewSquad() {
     const name = newSquadName.trim();
     if (!name) return;
-    const next = squadList.includes(name) ? squadList : [...squadList, name];
+    const isNew = !squadList.includes(name);
+    const next = isNew ? [...squadList, name] : squadList;
     setSquadList(next);
     setActiveSquadName(name);
     persistSquads(next, name);
     setNewSquadName("");
     setShowNameSquadModal(false);
     setIsCreatingAdditional(false);
+    // Seed the Home "Squad Feed" card so the user immediately sees activity
+    // when they land back on the dashboard. Without this the feed card on
+    // Home stays blank until something else (workout, scan) logs an event.
+    if (isNew) {
+      const email = getUserEmail() || "anon";
+      const userLabel = (squad?.members?.[0]?.name as string | undefined) || "You";
+      pushFeedEvent(email, {
+        userName: userLabel,
+        message: `started a new squad — ${name}`,
+        kind: "squad_created",
+      });
+      // Refresh the dashboard so the new feed entry shows on Home next time.
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    }
   }
 
   function switchSquad(name: string) {

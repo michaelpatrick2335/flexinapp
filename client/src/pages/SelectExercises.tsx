@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn, queryClient, apiRequest } from "@/lib/queryClient";
+import { getQueryFn, queryClient, apiRequest, getUserEmail } from "@/lib/queryClient";
+import { pushFeedEvent } from "@/lib/feed";
 
 interface ExercisesPayload {
   category: string;
@@ -44,6 +45,16 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
       });
     },
     onSuccess: () => {
+      // Push a local feed event so the Home "SQUAD FEED" card has something
+      // to show. (Server-side feed table TBD; see lib/feed.ts.)
+      try {
+        const count = selected.size;
+        pushFeedEvent(getUserEmail() || "anon", {
+          userName: "You",
+          message: `crushed ${category.name} — ${count} exercise${count === 1 ? "" : "s"}`,
+          kind: "workout_logged",
+        });
+      } catch {}
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       onCompleted();
     },
