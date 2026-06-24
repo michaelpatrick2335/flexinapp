@@ -65,6 +65,18 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   const [modal, setModal] = useState<null | "send" | "invite">(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
+  // Local reaction counts — ticked up when the user taps a pill so they
+  // get instant feedback. Resets on remount; backend sync TBD.
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({});
+  const [toast, setToast] = useState<string | null>(null);
+  const [showReactionMore, setShowReactionMore] = useState(false);
+
+  function bumpReaction(emoji: string) {
+    setReactionCounts((prev) => ({ ...prev, [emoji]: (prev[emoji] || 0) + 1 }));
+    setToast(`${emoji} sent`);
+    window.setTimeout(() => setToast((cur) => (cur === `${emoji} sent` ? null : cur)), 1200);
+  }
+
   const { data, isLoading } = useQuery<SquadPayload>({
     queryKey: ["/api/squad"],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -102,7 +114,12 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
               }}>{unreadNotifications}</span>
             )}
           </button>
-          <button aria-label="Add member" style={{ background: "transparent", border: "none", padding: 4, cursor: "pointer", color: t.text }}>
+          <button
+            aria-label="Invite friends"
+            onClick={() => setModal("invite")}
+            data-testid="squad-header-invite"
+            style={{ background: "transparent", border: "none", padding: 4, cursor: "pointer", color: t.text }}
+          >
             <AddPersonIcon color={t.text} size={22} />
           </button>
         </div>
@@ -120,16 +137,6 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             <span>{squad.memberCount} members • {squad.streakDays} day streak</span>
           </div>
         </div>
-        <button
-          style={{
-            background: "transparent", color: t.text, border: `1px solid ${t.border}`,
-            borderRadius: 22, padding: "9px 14px", fontSize: 13, fontWeight: 600,
-            display: "flex", alignItems: "center", gap: 8, cursor: "pointer", whiteSpace: "nowrap",
-          }}
-        >
-          <GearIcon color={t.accent} size={16} />
-          Squad Settings
-        </button>
       </section>
 
       {/* ═════════════════════ SQUAD ENERGY ═════════════════════ */}
@@ -182,6 +189,8 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             </div>
           </div>
           <button
+            onClick={() => setModal("invite")}
+            data-testid="squad-coach-invite"
             style={{
               marginTop: 12, width: "100%",
               background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
@@ -232,11 +241,11 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
               <BoltIcon color={t.accent} size={13} />
               Send energy
             </button>
-            <ReactionPill t={t} emoji="🔥" />
-            <ReactionPill t={t} emoji="💪" />
-            <ReactionPill t={t} emoji="⚡" />
-            <ReactionPill t={t} emoji="🐀" />
-            <ReactionPill t={t} emoji="•••" />
+            <ReactionPill t={t} emoji="🔥" onTap={() => bumpReaction("🔥")} count={reactionCounts["🔥"] || 0} />
+            <ReactionPill t={t} emoji="💪" onTap={() => bumpReaction("💪")} count={reactionCounts["💪"] || 0} />
+            <ReactionPill t={t} emoji="⚡" onTap={() => bumpReaction("⚡")} count={reactionCounts["⚡"] || 0} />
+            <ReactionPill t={t} emoji="🐀" onTap={() => bumpReaction("🐀")} count={reactionCounts["🐀"] || 0} />
+            <ReactionPill t={t} emoji="•••" onTap={() => setShowReactionMore(true)} count={0} />
           </div>
         </Card>
       </section>
@@ -449,6 +458,56 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         <InviteModal t={t} squadName={squad.name} onClose={() => setModal(null)} />
       )}
 
+      {/* Reaction "more" picker — simple emoji grid */}
+      {showReactionMore && (
+        <div
+          onClick={() => setShowReactionMore(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 60,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: t.bgElevated, color: t.text, width: "100%", maxWidth: 480,
+              borderTopLeftRadius: 22, borderTopRightRadius: 22,
+              padding: "18px 18px max(18px, env(safe-area-inset-bottom))",
+              border: `1px solid ${t.border}`,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: t.textMuted, marginBottom: 10 }}>MORE REACTIONS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+              {["👏", "🙌", "😤", "👀", "🤯", "💀", "🚈", "✨", "🎯", "🏆", "❄️", "🚀"].map((e) => (
+                <button
+                  key={e}
+                  onClick={() => { bumpReaction(e); setShowReactionMore(false); }}
+                  style={{
+                    aspectRatio: "1", borderRadius: 12, fontSize: 22,
+                    background: t.bgInput, border: `1px solid ${t.border}`,
+                    color: t.text, cursor: "pointer",
+                  }}
+                >{e}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating toast for reactions */}
+      {toast && (
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed", left: "50%", bottom: 110, transform: "translateX(-50%)",
+            background: t.bgElevated, color: t.text, border: `1px solid ${t.border}`,
+            borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700,
+            boxShadow: `0 8px 24px rgba(0,0,0,0.35)`, zIndex: 70,
+            pointerEvents: "none",
+          }}
+        >{toast}</div>
+      )}
+
       {/* ═════════════════════ BOTTOM NAV ═════════════════════ */}
       <BottomNav
         t={t}
@@ -637,14 +696,28 @@ function ActivityRow({ t, item, member }: { t: any; item: SquadActivityItem; mem
   );
 }
 
-function ReactionPill({ t, emoji }: { t: any; emoji: string }) {
+function ReactionPill({ t, emoji, onTap, count }: { t: any; emoji: string; onTap?: () => void; count?: number }) {
   return (
-    <button style={{
-      width: 38, height: 38, borderRadius: 10,
-      background: t.bgInput, border: `1px solid ${t.border}`,
-      display: "grid", placeItems: "center", fontSize: 16, cursor: "pointer",
-      color: t.text, padding: 0,
-    }}>{emoji}</button>
+    <button
+      onClick={onTap}
+      data-testid={`reaction-${emoji}`}
+      style={{
+        width: 38, height: 38, borderRadius: 10,
+        background: t.bgInput, border: `1px solid ${t.border}`,
+        display: "grid", placeItems: "center", fontSize: 16, cursor: "pointer",
+        color: t.text, padding: 0, position: "relative",
+      }}
+    >
+      <span>{emoji}</span>
+      {!!count && count > 0 && (
+        <span style={{
+          position: "absolute", top: -4, right: -4,
+          minWidth: 16, height: 16, padding: "0 4px",
+          borderRadius: 8, background: t.accent, color: t.accentText,
+          fontSize: 9, fontWeight: 800, display: "grid", placeItems: "center",
+        }}>{count}</span>
+      )}
+    </button>
   );
 }
 
