@@ -219,7 +219,9 @@ async function getOrCreate(pool: Pool, email: string | null) {
     const r = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (r.rows.length > 0) {
       const u = r.rows[0];
-      if (TEST_ACCOUNTS.includes(email) && !u.is_premium) {
+      // TestFlight beta bypass: auto-grant premium on any GET as well, in
+      // case the user was created on an old build that didn't set it.
+      if (!u.is_premium) {
         const upd = await pool.query("UPDATE users SET is_premium = TRUE WHERE id = $1 RETURNING *", [u.id]);
         return upd.rows[0];
       }
@@ -311,6 +313,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(409).json({ error: "An account already exists with this email. Please log in." });
       }
       let user = await getOrCreate(pool, signupEmail);
+      // TestFlight beta bypass: until the App Store IAP product is approved,
+      // every new signup is auto-granted premium so the app routes straight
+      // into Home after "Start Your Journey". The Paywall code already
+      // contains an equivalent "notConfigured\" branch on the client — this
+      // mirrors it on the server so a brand-new account never sees Paywall.
+      if (!user.is_premium) {
+        const upd = await pool.query(
+          "UPDATE users SET is_premium = TRUE WHERE id = $1 RETURNING *",
+          [user.id],
+        );
+        user = upd.rows[0];
+      }
       // Persist display name from signup form (overrides the default 'Seeker').
       if (signupName) {
         const upd = await pool.query("UPDATE users SET name = $1 WHERE id = $2 RETURNING *", [signupName, user.id]);
@@ -358,7 +372,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       } else {
         user = r.rows[0];
-        if (TEST_ACCOUNTS.includes(loginEmail) && !user.is_premium) {
+        // TestFlight beta bypass: auto-grant premium to ANY existing account
+        // on login so users who signed up before the IAP product was ready
+        // (and whose accounts were stranded at is_premium=false) can finally
+        // get into the app. Same rationale as the /signup branch above.
+        if (!user.is_premium) {
           const upd = await pool.query("UPDATE users SET is_premium = TRUE WHERE id = $1 RETURNING *", [user.id]);
           user = upd.rows[0];
         }

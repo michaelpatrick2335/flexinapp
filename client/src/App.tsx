@@ -254,9 +254,10 @@ function AppContent() {
                 }),
               });
               if (r.ok) {
-                // Brand-new account created.
+                // Brand-new account created. The server marks the user premium
+                // during the TestFlight beta so they route straight into Home.
                 setUserEmail(signupEmail);
-                queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+                await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
                 return;
               }
               // 409 = account already exists with this email. Log the user in
