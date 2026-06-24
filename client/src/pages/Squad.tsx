@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, getUserEmail } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
 import maxMale from "@/assets/max_male.png";
 import maxFemale from "@/assets/max_female.png";
@@ -71,6 +71,61 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   const [toast, setToast] = useState<string | null>(null);
   const [showReactionMore, setShowReactionMore] = useState(false);
 
+  // ── Multi-squad state ─────────────────────────────────────────────────────
+  // Squads are tracked client-side keyed by user email. First-time users get
+  // a "Name your squad" modal; afterwards they can switch between or create
+  // additional squads from the header switcher.
+  const squadsKey = `flexin.squads:${getUserEmail() || "anon"}`;
+  const activeSquadKey = `flexin.activeSquad:${getUserEmail() || "anon"}`;
+  const [squadList, setSquadList] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(squadsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [activeSquadName, setActiveSquadName] = useState<string>(() => {
+    try { return localStorage.getItem(activeSquadKey) || ""; } catch { return ""; }
+  });
+  const [showNameSquadModal, setShowNameSquadModal] = useState(false);
+  const [showSquadSwitcher, setShowSquadSwitcher] = useState(false);
+  const [newSquadName, setNewSquadName] = useState("");
+  const [isCreatingAdditional, setIsCreatingAdditional] = useState(false);
+
+  // Open name-your-squad modal on first visit when no squads exist yet.
+  useEffect(() => {
+    if (squadList.length === 0) {
+      setShowNameSquadModal(true);
+      setIsCreatingAdditional(false);
+    }
+  }, [squadList.length]);
+
+  function persistSquads(list: string[], active: string) {
+    try { localStorage.setItem(squadsKey, JSON.stringify(list)); } catch {}
+    try { localStorage.setItem(activeSquadKey, active); } catch {}
+  }
+
+  function saveNewSquad() {
+    const name = newSquadName.trim();
+    if (!name) return;
+    const next = squadList.includes(name) ? squadList : [...squadList, name];
+    setSquadList(next);
+    setActiveSquadName(name);
+    persistSquads(next, name);
+    setNewSquadName("");
+    setShowNameSquadModal(false);
+    setIsCreatingAdditional(false);
+  }
+
+  function switchSquad(name: string) {
+    setActiveSquadName(name);
+    persistSquads(squadList, name);
+    setShowSquadSwitcher(false);
+  }
+
   function bumpReaction(emoji: string) {
     setReactionCounts((prev) => ({ ...prev, [emoji]: (prev[emoji] || 0) + 1 }));
     setToast(`${emoji} sent`);
@@ -128,10 +183,20 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
       {/* ═════════════════════ TITLE ROW ═════════════════════ */}
       <section style={{ padding: "12px 18px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: 0.6, display: "flex", alignItems: "center", gap: 8 }}>
-            {squad.name}
+          <button
+            onClick={() => setShowSquadSwitcher(true)}
+            data-testid="squad-name-switcher"
+            style={{
+              background: "transparent", border: "none", padding: 0, margin: 0,
+              color: t.text, cursor: "pointer", textAlign: "left",
+              display: "flex", alignItems: "center", gap: 8,
+              fontSize: 26, fontWeight: 800, letterSpacing: 0.6,
+            }}
+          >
+            <span>{activeSquadName || squad.name}</span>
             <BoltIcon color={t.accent} size={20} />
-          </h1>
+            <span style={{ color: t.textMuted, fontSize: 18, marginLeft: 2 }}>▾</span>
+          </button>
           <div style={{ marginTop: 6, fontSize: 13, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
             <FlameIcon color={t.accent} size={14} />
             <span>{squad.memberCount} members • {squad.streakDays} day streak</span>
@@ -506,6 +571,162 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             pointerEvents: "none",
           }}
         >{toast}</div>
+      )}
+
+      {/* ═════════════════════ NAME YOUR SQUAD MODAL ═════════════════════ */}
+      {showNameSquadModal && (
+        <div
+          onClick={() => { if (squadList.length > 0) setShowNameSquadModal(false); }}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 80, padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 380,
+              background: t.bgElevated, color: t.text,
+              border: `1px solid ${t.border}`, borderRadius: 20,
+              padding: 22, boxShadow: `0 16px 48px rgba(0,0,0,0.5)`,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <BoltIcon color={t.accent} size={20} />
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: t.text }}>
+                {isCreatingAdditional ? "Create new squad" : "Name your squad"}
+              </h2>
+            </div>
+            <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 14, lineHeight: 1.4 }}>
+              {isCreatingAdditional
+                ? "Give your new crew a name. You can switch between squads anytime."
+                : "What do you want to call your crew? You can rename or add more squads later."}
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={newSquadName}
+              onChange={(e) => setNewSquadName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveNewSquad(); }}
+              placeholder="e.g. Iron Bros, Glute Goals, The Bench Squad"
+              maxLength={32}
+              data-testid="squad-name-input"
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: t.bgInput, color: t.text,
+                border: `1px solid ${t.border}`, borderRadius: 12,
+                padding: "12px 14px", fontSize: 15, fontWeight: 600,
+                outline: "none", marginBottom: 14,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              {isCreatingAdditional && squadList.length > 0 && (
+                <button
+                  onClick={() => { setShowNameSquadModal(false); setNewSquadName(""); setIsCreatingAdditional(false); }}
+                  style={{
+                    flex: 1, padding: "12px 14px", borderRadius: 14,
+                    background: "transparent", color: t.text,
+                    border: `1px solid ${t.border}`,
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  }}
+                >Cancel</button>
+              )}
+              <button
+                onClick={saveNewSquad}
+                disabled={!newSquadName.trim()}
+                data-testid="squad-name-save"
+                style={{
+                  flex: 2, padding: "12px 14px", borderRadius: 14,
+                  background: newSquadName.trim()
+                    ? `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`
+                    : t.bgInput,
+                  color: newSquadName.trim() ? t.accentText : t.textMuted,
+                  border: "none",
+                  fontSize: 14, fontWeight: 800, letterSpacing: 1, cursor: newSquadName.trim() ? "pointer" : "default",
+                  boxShadow: newSquadName.trim() ? `0 8px 24px ${t.accentGlow}` : "none",
+                }}
+              >
+                {isCreatingAdditional ? "CREATE SQUAD" : "CREATE"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════ SQUAD SWITCHER ═════════════════════ */}
+      {showSquadSwitcher && (
+        <div
+          onClick={() => setShowSquadSwitcher(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
+            zIndex: 70,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: t.bgElevated, color: t.text, width: "100%", maxWidth: 480,
+              borderTopLeftRadius: 22, borderTopRightRadius: 22,
+              padding: "18px 18px max(18px, env(safe-area-inset-bottom))",
+              border: `1px solid ${t.border}`,
+            }}
+          >
+            <div style={{ width: 40, height: 4, background: t.border, borderRadius: 2, margin: "0 auto 14px" }} />
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: t.textMuted, marginBottom: 12 }}>
+              YOUR SQUADS
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+              {squadList.map((name) => {
+                const isActive = name === activeSquadName;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => switchSquad(name)}
+                    data-testid={`squad-switcher-${name}`}
+                    style={{
+                      width: "100%", textAlign: "left",
+                      background: isActive ? `${t.accent}18` : t.bgInput,
+                      color: t.text,
+                      border: `1px solid ${isActive ? t.accent : t.border}`,
+                      borderRadius: 14, padding: "12px 14px",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      fontSize: 15, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <BoltIcon color={isActive ? t.accent : t.textMuted} size={16} />
+                      {name}
+                    </span>
+                    {isActive && (
+                      <span style={{ color: t.accent, fontSize: 11, fontWeight: 800, letterSpacing: 1 }}>ACTIVE</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => {
+                setShowSquadSwitcher(false);
+                setIsCreatingAdditional(true);
+                setNewSquadName("");
+                setShowNameSquadModal(true);
+              }}
+              data-testid="squad-switcher-create"
+              style={{
+                width: "100%",
+                background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                color: t.accentText, border: "none", borderRadius: 16,
+                padding: "12px 14px", fontSize: 14, fontWeight: 800, letterSpacing: 1,
+                cursor: "pointer", boxShadow: `0 8px 24px ${t.accentGlow}`,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              + CREATE NEW SQUAD
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ═════════════════════ BOTTOM NAV ═════════════════════ */}

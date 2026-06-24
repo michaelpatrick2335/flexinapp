@@ -467,11 +467,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const categoriesPayload = {
         sex: u.sex || "unspecified",
         categories: [
-          { key: "push",     name: "Push Day",   summary: "Chest, Shoulders, Triceps", icon: "bolt"    },
-          { key: "pull",     name: "Pull Day",   summary: "Back, Biceps",              icon: "pull"    },
-          { key: "legs",     name: "Leg Day",    summary: "Quads, Hamstrings, Calves", icon: "legs"    },
-          { key: "fullbody", name: "Full Body",  summary: "Everything",                icon: "body"    },
-          { key: "custom",   name: "Custom Day", summary: "Build your own",            icon: "plus"    },
+          { key: "push",     name: "Push Day",     summary: "Chest, Shoulders, Triceps",  icon: "bolt"  },
+          { key: "pull",     name: "Pull Day",     summary: "Back, Biceps",               icon: "pull"  },
+          { key: "legs",     name: "Leg Day",      summary: "Quads, Hamstrings, Calves",  icon: "legs"  },
+          { key: "fullbody", name: "Full Body",    summary: "Everything",                 icon: "body"  },
+          { key: "arms",     name: "Arm Day",      summary: "Biceps, Triceps, Forearms",  icon: "bicep" },
+          { key: "shoulders",name: "Shoulder Day", summary: "Front, Side, Rear Delts",    icon: "bolt"  },
+          { key: "glutes",   name: "Glute Day",    summary: "Glutes, Hamstrings",         icon: "legs"  },
+          { key: "back",     name: "Back Day",     summary: "Lats, Rhomboids, Traps",     icon: "pull"  },
+          { key: "chest",    name: "Chest Day",    summary: "Chest, Triceps",             icon: "body"  },
+          { key: "custom",   name: "Custom Day",   summary: "Build your own",             icon: "plus"  },
         ],
       };
       return res.json(categoriesPayload);
@@ -488,11 +493,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const isFemale = u.sex === "female";
       const category = String(req.query.category || "push").toLowerCase();
       const byCategory: Record<string, string[]> = {
-        push:     ["Bench Press", "Incline Press", "Chest Fly", "Shoulder Press", "Lateral Raises", "Tricep Dips", "Skull Crushers", "Cable Pushdown", "Push-Up"],
-        pull:     ["Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Face Pull", "Bicep Curl", "Hammer Curl", "Preacher Curl", "Reverse Fly"],
-        legs:     ["Back Squat", "Front Squat", "Romanian Deadlift", "Leg Press", "Walking Lunge", "Hip Thrust", "Leg Curl", "Leg Extension", "Calf Raise"],
-        fullbody: ["Deadlift", "Back Squat", "Bench Press", "Pull-Up", "Overhead Press", "Barbell Row", "Lunge", "Plank", "Burpee"],
-        custom:   [],
+        push:      ["Bench Press", "Incline Press", "Chest Fly", "Shoulder Press", "Lateral Raises", "Tricep Dips", "Skull Crushers", "Cable Pushdown", "Push-Up"],
+        pull:      ["Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Face Pull", "Bicep Curl", "Hammer Curl", "Preacher Curl", "Reverse Fly"],
+        legs:      ["Back Squat", "Front Squat", "Romanian Deadlift", "Leg Press", "Walking Lunge", "Hip Thrust", "Leg Curl", "Leg Extension", "Calf Raise"],
+        fullbody:  ["Deadlift", "Back Squat", "Bench Press", "Pull-Up", "Overhead Press", "Barbell Row", "Lunge", "Plank", "Burpee"],
+        arms:      ["Bicep Curl", "Hammer Curl", "Preacher Curl", "Concentration Curl", "Tricep Dips", "Skull Crushers", "Cable Pushdown", "Overhead Tricep Extension", "Wrist Curl"],
+        shoulders: ["Overhead Press", "Shoulder Press", "Lateral Raises", "Front Raises", "Rear Delt Fly", "Arnold Press", "Upright Row", "Face Pull", "Shrugs"],
+        glutes:    ["Hip Thrust", "Glute Bridge", "Romanian Deadlift", "Bulgarian Split Squat", "Cable Kickback", "Sumo Squat", "Walking Lunge", "Step-Up", "Glute Ham Raise"],
+        back:      ["Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "T-Bar Row", "Single-Arm Dumbbell Row", "Face Pull", "Straight-Arm Pulldown", "Hyperextension"],
+        chest:     ["Bench Press", "Incline Bench Press", "Decline Bench Press", "Dumbbell Press", "Incline Dumbbell Press", "Chest Fly", "Cable Crossover", "Push-Up", "Dumbbell Pullover"],
+        custom:    [],
       };
       const names = byCategory[category] ?? byCategory.fullbody;
       const exercises = names.map((name, i) => ({

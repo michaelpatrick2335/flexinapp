@@ -87,40 +87,28 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
         What are we training today?
       </div>
 
-      {/* Add Workout button — lets user add a custom workout day to the list */}
-      <div style={{ padding: "0 14px 12px" }}>
-        <button
-          onClick={() => { setAddDraft(""); setShowAddDialog(true); }}
-          data-testid="add-workout-day"
-          style={{
-            width: "100%",
-            padding: "12px 16px",
-            borderRadius: 14,
-            border: `1px dashed ${t.accent}`,
-            background: "transparent",
-            color: t.accent,
-            fontSize: 14,
-            fontWeight: 800,
-            letterSpacing: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            cursor: "pointer",
-          }}
-        >
-          <PlusIcon color={t.accent} /> ADD WORKOUT
-        </button>
-      </div>
-
-      {/* Category tiles */}
+      {/* Category tiles. The server-provided list ends with "Custom Day",
+          which doubles as the entry point for adding a user-named custom
+          day — tapping it opens the rename dialog instead of just selecting
+          a static category. Any saved custom days persisted to localStorage
+          render below the server tiles. */}
       <div style={{ padding: "0 14px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
         {categories.map((cat) => {
           const isSelected = selected?.key === cat.key;
+          const isCustomEntry = cat.key === "custom";
           return (
             <button
               key={cat.key}
-              onClick={() => setSelectedKey(cat.key)}
+              onClick={() => {
+                if (isCustomEntry) {
+                  // Custom Day tile -> open name dialog so the user can
+                  // create a personalized workout day on the fly.
+                  setAddDraft("");
+                  setShowAddDialog(true);
+                  return;
+                }
+                setSelectedKey(cat.key);
+              }}
               style={{
                 background: isSelected
                   ? `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`

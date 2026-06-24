@@ -2,8 +2,30 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Lock the viewport so iOS WebView (Capacitor) doesn't pinch-zoom or
+         text-zoom. user-scalable=no + maximum-scale=1 prevent the accidental
+         zoom-in we were seeing in TestFlight where the user couldn't zoom
+         back out. viewport-fit=cover ensures safe-area insets are correct. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0d0f1a" />
+    <style>
+      html, body {
+        /* Stop iOS Safari/WebView from auto-bumping text size on rotation
+           or accessibility settings. Combined with the locked viewport,
+           this gives us a stable, non-zoomable layout. */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        /* Disable double-tap zoom while still allowing taps to register
+           quickly (no 300ms delay). */
+        touch-action: manipulation;
+      }
+      body {
+        /* Disable the long-press text-selection callout on iOS so the app
+           feels native, and prevent text selection on chrome elements. */
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Flexin — Train. Track. Transform.</title>

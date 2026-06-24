@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -59,6 +59,49 @@ export function Profile({
   const [avatarError, setAvatarError] = useState<string | null>(null);
   // If the avatar image fails to load (404, stale URL), fall back to initial.
   const [avatarImgFailed, setAvatarImgFailed] = useState(false);
+
+  // Inline edit dialog state. We use one dialog component for name/age/weight
+  // so any "row" on the profile can pop the same prompt with the right field.
+  const [editField, setEditField] = useState<null | { key: "name" | "age" | "weightLbs"; label: string; value: string; type: "text" | "number"; suffix?: string }>(null);
+  const [editDraft, setEditDraft] = useState<string>("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function openEdit(key: "name" | "age" | "weightLbs", label: string, value: string | number | null, type: "text" | "number", suffix?: string) {
+    setEditField({ key, label, value: value == null ? "" : String(value), type, suffix });
+    setEditDraft(value == null ? "" : String(value));
+    setEditError(null);
+  }
+
+  async function saveEdit() {
+    if (!editField) return;
+    const raw = editDraft.trim();
+    let payload: Record<string, any> = {};
+    if (editField.key === "name") {
+      if (!raw) { setEditError("Name can't be empty"); return; }
+      payload.name = raw;
+    } else if (editField.key === "age") {
+      const n = parseInt(raw, 10);
+      if (!raw || isNaN(n) || n < 5 || n > 120) { setEditError("Enter a valid age"); return; }
+      payload.age = n;
+    } else if (editField.key === "weightLbs") {
+      const n = parseFloat(raw);
+      if (!raw || isNaN(n) || n < 40 || n > 800) { setEditError("Enter a valid weight in lbs"); return; }
+      payload.weightLbs = n;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await apiRequest("PATCH", "/api/user", payload);
+      await qc.invalidateQueries({ queryKey: ["/api/user"] });
+      await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setEditField(null);
+    } catch (e: any) {
+      setEditError(e?.message || "Couldn't save");
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   const userEmail = typeof window !== "undefined"
     ? (localStorage.getItem("flexin_user_email") || "").trim()
@@ -220,7 +263,9 @@ export function Profile({
       {/* ═════════════════════ EMAIL CARD ═════════════════════ */}
       <div style={{ padding: "20px 18px 0" }}>
         <RowCard t={t}>
-          <Row t={t} icon={<MailIcon color={t.accent} />} label="Email" value={user.email} onClick={() => {/* read-only for now */}} />
+          {/* Email is the account identifier and can't be changed in-app
+              (auth flows are keyed off it). Tapping just nudges — no edit. */}
+          <Row t={t} icon={<MailIcon color={t.accent} />} label="Email" value={user.email} />
         </RowCard>
       </div>
 
@@ -230,17 +275,25 @@ export function Profile({
           <Row
             t={t}
             icon={<CakeIcon color={t.accent} />}
+            label="Name"
+            value={user.name || "—"}
+            onClick={() => openEdit("name", "Name", user.name, "text")}
+          />
+          <Divider t={t} />
+          <Row
+            t={t}
+            icon={<CakeIcon color={t.accent} />}
             label="Age"
-            value={user.age != null ? `${user.age}` : "—"}
-            onClick={() => {/* edit coming soon */}}
+            value={user.age != null ? `${user.age}` : "Add"}
+            onClick={() => openEdit("age", "Age", user.age, "number")}
           />
           <Divider t={t} />
           <Row
             t={t}
             icon={<ScaleIcon color={t.accent} />}
             label="Weight"
-            value={user.weightLbs != null ? `${user.weightLbs} lbs` : "—"}
-            onClick={() => {/* edit coming soon */}}
+            value={user.weightLbs != null ? `${user.weightLbs} lbs` : "Add"}
+            onClick={() => openEdit("weightLbs", "Weight (lbs)", user.weightLbs, "number", "lbs")}
           />
         </RowCard>
       </div>
@@ -252,7 +305,7 @@ export function Profile({
             t={t}
             icon={<PersonIcon color={t.accent} />}
             label="Change Profile Picture"
-            onClick={() => {/* upload coming soon */}}
+            onClick={() => avatarInputRef.current?.click()}
           />
           <Divider t={t} />
           <Row
@@ -311,9 +364,97 @@ export function Profile({
         </button>
       </div>
 
-      {/* Deactivate confirm sheet */}
+      {/* Deactivate confirm sheet — confirming logs the user out locally so
+          the account effectively goes dark on this device. A server-side
+          delete endpoint will be added later; until then this is the safest
+          "deactivate" we can offer end users. */}
       {deactivateOpen && (
-        <DeactivateSheet t={t} onClose={() => setDeactivateOpen(false)} onConfirm={() => setDeactivateOpen(false)} />
+        <DeactivateSheet
+          t={t}
+          onClose={() => setDeactivateOpen(false)}
+          onConfirm={() => {
+            setDeactivateOpen(false);
+            onLogOut();
+          }}
+        />
+      )}
+
+      {/* Inline edit dialog (Name / Age / Weight). Renders on top of the
+          profile so the user can quickly tap a row and update one field. */}
+      {editField && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 24,
+          }}
+          onClick={() => !editSaving && setEditField(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 360,
+              background: t.bgElevated, color: t.text,
+              border: `1px solid ${t.border}`,
+              borderRadius: 18, padding: 20,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: t.textMuted, marginBottom: 6 }}>
+              UPDATE
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              {editField.label}
+            </div>
+            <input
+              autoFocus
+              type={editField.type}
+              inputMode={editField.type === "number" ? "numeric" : "text"}
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              placeholder={editField.label}
+              onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); }}
+              style={{
+                width: "100%", padding: "12px 14px", borderRadius: 12,
+                border: `1px solid ${t.border}`, background: t.bg, color: t.text,
+                fontSize: 16, outline: "none", marginBottom: 12,
+              }}
+            />
+            {editError && (
+              <div style={{ color: "#ff8080", fontSize: 13, marginBottom: 10 }}>{editError}</div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setEditField(null)}
+                disabled={editSaving}
+                style={{
+                  flex: 1, padding: "12px 14px", borderRadius: 12,
+                  background: "transparent", border: `1px solid ${t.border}`, color: t.text,
+                  fontSize: 14, fontWeight: 700, cursor: editSaving ? "not-allowed" : "pointer",
+                  opacity: editSaving ? 0.6 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={editSaving}
+                style={{
+                  flex: 1, padding: "12px 14px", borderRadius: 12,
+                  background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                  color: "#fff", border: "none",
+                  fontSize: 14, fontWeight: 800, letterSpacing: 0.5,
+                  cursor: editSaving ? "wait" : "pointer",
+                  opacity: editSaving ? 0.7 : 1,
+                }}
+              >
+                {editSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ═════════════════════ BOTTOM NAV ═════════════════════ */}
