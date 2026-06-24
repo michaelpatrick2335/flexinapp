@@ -141,17 +141,19 @@ export function Paywall({ onUnlock, userName }: PaywallProps) {
       className="min-h-screen flex flex-col items-center justify-start px-5 py-8 overflow-y-auto relative"
       style={{ background: "#000" }}
     >
-      {/* Header — logo with blue glow ring + description */}
+      {/* Header — logo with blue glow ring + description. Logo is sized large
+          enough that the full "flexin" wordmark sits comfortably inside the
+          circle on a standard iPhone width. */}
       <div className="flex flex-col items-center text-center mb-6">
         <div
           style={{
-            width: 130,
-            height: 130,
+            width: 180,
+            height: 180,
             borderRadius: "50%",
             overflow: "hidden",
-            marginBottom: 20,
+            marginBottom: 22,
             border: `2px solid ${BLUE}`,
-            boxShadow: `0 0 28px ${BLUE_GLOW}, 0 0 60px ${BLUE_SOFT}`,
+            boxShadow: `0 0 32px ${BLUE_GLOW}, 0 0 70px ${BLUE_SOFT}`,
           }}
         >
           <img src={flexinCircle} alt="Flexin" style={{ width: "100%", height: "100%", objectFit: "cover" }} />

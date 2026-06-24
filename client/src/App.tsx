@@ -66,6 +66,15 @@ function AppContent() {
       }
     } catch {}
 
+    // TestFlight requirement: always start the app at the Welcome screen.
+    // Drop any persisted login (email + react-query cache + pending join code
+    // staging) before the first render so the splash gives way to Welcome,
+    // not to a half-cached "Loading…" against a stale account.
+    if (Capacitor.isNativePlatform()) {
+      try { clearUserEmail(); } catch {}
+      try { queryClient.clear(); } catch {}
+    }
+
     // Clipboard handoff: on iOS first-launch, the user may have tapped a
     // /join/CODE link before installing the app. join.html copies the code
     // as "FLEXIN-TRIBE:CODE" to the system clipboard. Read it here so we can

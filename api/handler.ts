@@ -91,6 +91,18 @@ async function ensureTables(pool: Pool) {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS active_group_id INTEGER;
     -- Tribe code stashed at web signup; consumed by the native app on first launch
     ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_join_code TEXT;
+    -- Flexin profile fields (added during onboarding flow)
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_override TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_trainer BOOLEAN DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS weight_lbs REAL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_body_type TEXT;
+    -- Flexin progression fields (mirror what the Home dashboard expects)
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS form_level INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS form_rank TEXT NOT NULL DEFAULT 'Newbie';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS xp_to_next INTEGER NOT NULL DEFAULT 100;
   `);
 }
 
@@ -135,6 +147,16 @@ function rowToUser(row: any) {
     freeSessionsUsed: row.free_sessions_used, profilePic: row.profile_pic ?? null,
     activeMusicTrack: row.active_music_track ?? null,
     pendingJoinCode: row.pending_join_code ?? null,
+    sex: row.sex ?? null,
+    themeOverride: row.theme_override ?? null,
+    isTrainer: row.is_trainer ?? false,
+    age: row.age ?? null,
+    weightLbs: row.weight_lbs ?? null,
+    avatarBodyType: row.avatar_body_type ?? null,
+    formLevel: row.form_level ?? 1,
+    formRank: row.form_rank ?? "Newbie",
+    xp: row.xp ?? 0,
+    xpToNext: row.xp_to_next ?? 100,
   };
 }
 
@@ -175,6 +197,9 @@ const COL_MAP: Record<string, string> = {
   isPremium: "is_premium", freeSessionsUsed: "free_sessions_used",
   profilePic: "profile_pic", activeMusicTrack: "active_music_track", email: "email",
   activeGroupId: "active_group_id",
+  sex: "sex", themeOverride: "theme_override", isTrainer: "is_trainer",
+  age: "age", weightLbs: "weight_lbs", avatarBodyType: "avatar_body_type",
+  formLevel: "form_level", formRank: "form_rank", xp: "xp", xpToNext: "xp_to_next",
 };
 
 async function updateUser(pool: Pool, id: number, fields: Record<string, any>) {
@@ -251,6 +276,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
         user = upd.rows[0];
       }
+      // Persist the onboarding profile fields (sex / theme / trainer / age /
+      // weight / avatar). Filtered through COL_MAP — unknown keys are dropped.
+      const profilePatch: Record<string, any> = {};
+      const b = (req.body || {}) as Record<string, any>;
+      for (const k of ["sex", "themeOverride", "isTrainer", "age", "weightLbs", "avatarBodyType"]) {
+        if (b[k] !== undefined && b[k] !== null && b[k] !== "") profilePatch[k] = b[k];
+      }
+      if (Object.keys(profilePatch).length) {
+        user = await updateUser(pool, user.id, profilePatch);
+      }
       return res.json(rowToUser(user));
     }
 
@@ -280,6 +315,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
       return res.json(rowToUser(user));
+    }
+
+    // GET /api/dashboard
+    // Home screen payload. Returns the user profile plus sensible empty
+    // defaults for the rich "stats" sections that don't yet have backing
+    // tables. As workout logging / squad activity tables come online we will
+    // hydrate these fields from real data; for now this unblocks the Home
+    // screen so testers don't get stuck on a permanent "Loading...".
+    if (path === "/dashboard") {
+      if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      const dashboard = {
+        user: {
+          id: u.id,
+          name: u.name || "Friend",
+          sex: u.sex || "unspecified",
+          formLevel: u.formLevel,
+          formRank: u.formRank,
+          isPremium: u.isPremium,
+          xp: u.xp,
+          xpToNext: u.xpToNext,
+          streakDays: u.streakDays,
+          avatarBodyType: u.avatarBodyType,
+        },
+        muscleGroups: [
+          { key: "chest",     label: "Chest",     progress: 0, streakDays: 0 },
+          { key: "back",      label: "Back",      progress: 0, streakDays: 0 },
+          { key: "legs",      label: "Legs",      progress: 0, streakDays: 0 },
+          { key: "shoulders", label: "Shoulders", progress: 0, streakDays: 0 },
+          { key: "arms",      label: "Arms",      progress: 0, streakDays: 0 },
+          { key: "core",      label: "Core",      progress: 0, streakDays: 0 },
+        ],
+        bodyDeltas: [
+          { key: "overall",   label: "Overall",   delta: 0, isOverall: true },
+          { key: "chest",     label: "Chest",     delta: 0 },
+          { key: "back",      label: "Back",      delta: 0 },
+          { key: "legs",      label: "Legs",      delta: 0 },
+          { key: "shoulders", label: "Shoulders", delta: 0 },
+          { key: "arms",      label: "Arms",      delta: 0 },
+          { key: "core",      label: "Core",      delta: 0 },
+        ],
+        energy: { percent: 100, message: "Fresh start — let's go" },
+        weeklyScanDaysLeft: 7,
+        monthStats: {
+          trainingDays: 0, totalWorkouts: 0, caloriesBurned: 0,
+          avgFormScore: 0, unreadAlerts: 0,
+        },
+        activeSquad: {
+          id: 0, name: "", energy: 0, memberCount: 0,
+          mvp: { userId: 0, name: "", contribution: 0 },
+        },
+        squadFeed: [],
+        evolution: [],
+        evolutionTimeline: [
+          { key: "start",  label: "Start",   intensity: 0 },
+          { key: "week1",  label: "Week 1",  intensity: 0 },
+          { key: "month1", label: "Month 1", intensity: 0 },
+          { key: "month3", label: "Month 3", intensity: 0 },
+          { key: "goal",   label: "Goal",    intensity: 0 },
+        ],
+        coachMessage: `Welcome, ${u.name || "friend"}. Log your first workout to start your transformation.`,
+        generatedAt: new Date().toISOString(),
+      };
+      return res.json(dashboard);
     }
 
     // ── POST /api/unlock ─────────────────────────────────────────────────────
