@@ -381,6 +381,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user: {
           id: u.id,
           name: u.name || "Friend",
+          email: u.email,
           sex: u.sex || "unspecified",
           formLevel: u.formLevel,
           formRank: u.formRank,
@@ -390,6 +391,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           streakDays: u.streakDays,
           avatarBodyType: u.avatarBodyType,
           goalAvatarBodyType: u.goalAvatarBodyType,
+          // Profile page (which reads from /api/dashboard) needs these.
+          // Onboarding (NameEmail screen) collects age + weight and POSTs
+          // them to /api/signup; without surfacing them here the Profile
+          // tiles would always read "Add" even after the user typed them in.
+          age: u.age,
+          weightLbs: u.weightLbs,
+          avatarUrl: u.profilePic || null,
         },
         muscleGroups: [
           { key: "chest",     label: "Chest",     progress: 0, streakDays: 0 },
