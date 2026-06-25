@@ -560,18 +560,19 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         <SendEnergyModal
           t={t}
           members={squad.members}
+          activity={activity}
           sentTo={sentTo}
-          onPick={async (memberName) => {
-            setSentTo(memberName);
+          onPick={async (memberName, emoji) => {
+            setSentTo(`${emoji} → ${memberName}`);
             // fire-and-forget reaction so the no-op endpoint still gets a hit
             try {
               await fetch(`${SQUAD_API_BASE}/api/squad/react`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ kind: "fire", target: memberName }),
+                body: JSON.stringify({ kind: emoji, target: memberName }),
               });
             } catch {}
-            setTimeout(() => { setModal(null); setSentTo(null); }, 900);
+            setTimeout(() => { setModal(null); setSentTo(null); }, 1100);
           }}
           onClose={() => { setModal(null); setSentTo(null); }}
         />
@@ -1019,10 +1020,19 @@ function ModalScrim({ onClose, children }: { onClose: () => void; children: Reac
   );
 }
 
-function SendEnergyModal({ t, members, sentTo, onPick, onClose }: {
-  t: any; members: SquadMember[]; sentTo: string | null;
-  onPick: (name: string) => void; onClose: () => void;
+// Full reaction palette — keep in sync with the strip + 'more' grid above.
+const ALL_REACTIONS = ["🔥", "💪", "⚡", "👀", "👏", "🙌", "😤", "🤯", "💀", "✨", "🎯", "🏆", "❄️", "🚀"];
+
+function SendEnergyModal({ t, members, activity, sentTo, onPick, onClose }: {
+  t: any; members: SquadMember[]; activity: SquadActivityItem[]; sentTo: string | null;
+  onPick: (name: string, emoji: string) => void; onClose: () => void;
 }) {
+  // Map each member to their most-recent activity row. Activity is already
+  // newest-first (local feed + server combined), so the first match wins.
+  const latestByMember = new Map<string, SquadActivityItem>();
+  for (const a of activity) {
+    if (!latestByMember.has(a.member)) latestByMember.set(a.member, a);
+  }
   return (
     <ModalScrim onClose={onClose}>
       <div style={{
@@ -1036,47 +1046,63 @@ function SendEnergyModal({ t, members, sentTo, onPick, onClose }: {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: t.text }}>Send energy</h2>
         </div>
         <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 14 }}>
-          Pick a squad member to hit with a charge.
+          Tap any reaction next to a member's latest activity.
         </div>
 
         {sentTo ? (
           <div style={{
             padding: "24px 16px", textAlign: "center",
-            color: t.accent, fontSize: 16, fontWeight: 700,
+            color: t.accent, fontSize: 18, fontWeight: 800,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}>
             <BoltIcon color={t.accent} size={20} />
-            Energy sent to {sentTo}!
+            Energy sent {sentTo}!
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            {members.map((m) => (
-              <button
-                key={m.name}
-                onClick={() => onPick(m.name)}
-                style={{
-                  background: "transparent", border: "none", padding: "8px 4px",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                  cursor: "pointer", borderRadius: 12,
-                }}
-              >
-                <div style={{ position: "relative" }}>
-                  <Avatar member={m} size={56} t={t} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "58vh", overflowY: "auto" }}>
+            {members.map((m) => {
+              const latest = latestByMember.get(m.name);
+              return (
+                <div key={m.name} style={{
+                  background: t.bgInput,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 16, padding: 12,
+                  display: "flex", flexDirection: "column", gap: 10,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Avatar member={m} size={42} t={t} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {m.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {latest ? `${latest.text} · ${latest.time}` : (m.lastActiveAgo ? `Active ${m.lastActiveAgo}` : "No recent activity")}
+                      </div>
+                    </div>
+                  </div>
                   <div style={{
-                    position: "absolute", bottom: -2, right: -2,
-                    width: 22, height: 22, borderRadius: 11,
-                    background: t.accent, color: t.accentText,
-                    display: "grid", placeItems: "center",
-                    boxShadow: `0 0 8px ${t.accentGlow}`,
-                  }}>
-                    <BoltIcon color={t.accentText} size={12} />
+                    display: "flex", gap: 6, overflowX: "auto",
+                    paddingBottom: 2,
+                    scrollbarWidth: "none",
+                  } as any}>
+                    {ALL_REACTIONS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => onPick(m.name, e)}
+                        style={{
+                          flex: "0 0 auto",
+                          width: 38, height: 38, borderRadius: 19,
+                          background: t.bgElevated, border: `1px solid ${t.border}`,
+                          fontSize: 18, lineHeight: 1, cursor: "pointer",
+                          display: "grid", placeItems: "center",
+                          color: t.text,
+                        }}
+                      >{e}</button>
+                    ))}
                   </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
-                  {m.name}
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
 

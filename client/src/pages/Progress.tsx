@@ -109,16 +109,12 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
           hasScan: true,
           scanHero: {
             ...prev.scanHero,
-            title: result?.status === "rendered" ? "Your scan" : "Scan received",
-            body:
-              result?.status === "rendered"
-                ? "Here's your fitness render. Take another photo next week to see your progress."
-                : result?.renderError
-                  ? `Couldn't render this one (${result.renderError}). Photo saved — try another angle.`
-                  : "Photo saved. Take another next week to track your change.",
+            title: "Your latest scan",
+            body: "Photo saved. Take another next week to see your progress in the Evolution card below.",
             buttonLabel: "Take Another Photo",
             photoUrl: result?.photoUrl ?? dataUrl,
-            renderUrl: result?.renderUrl ?? null,
+            // We no longer show the AI render — explicitly clear it.
+            renderUrl: null,
           },
           recentScans: [
             {
@@ -137,12 +133,7 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
       // Also refresh the dashboard for muscle bars etc.
       await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
 
-      // Surface render errors as a non-fatal banner (photo is still saved)
-      if (result?.status === "failed" && result?.renderError) {
-        setUploadError(`AI render failed: ${result.renderError}`);
-      } else if (result?.status === "stub") {
-        setUploadError("AI render not configured (add GOOGLE_API_KEY to enable).");
-      }
+      // No render-status banners anymore — we just save the photo and move on.
     } catch (e: any) {
       setUploadError(e?.message || "Upload failed");
     } finally {
@@ -211,11 +202,6 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
     );
   }
 
-  // Silhouette params for the hero — real if user has scanned, otherwise sex default
-  const heroParams: SilhouetteParams =
-    data.scanHero.silhouetteParams ||
-    (isFemale ? DEFAULT_PARAMS_FEMALE : DEFAULT_PARAMS_MALE);
-
   return (
     <div style={{ minHeight: "100vh", background: t.bg, color: t.text, paddingBottom: 110, overflowX: "hidden" }}>
 
@@ -268,108 +254,32 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
           borderRadius: 22,
           padding: 16,
         }}>
-          {/* Photo + arrow + silhouette */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", marginBottom: 18 }}>
-            {/* Photo tile */}
+          {/* Centered full-body photo */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
             <div style={{
-              borderRadius: 14,
+              width: "100%",
+              maxWidth: 320,
+              borderRadius: 16,
               overflow: "hidden",
               aspectRatio: "3 / 4",
               background: isFemale ? `linear-gradient(180deg, ${t.bgInput}, ${t.bgElevated})` : "#0a0a0a",
               border: `1px solid ${t.border}`,
               display: "grid", placeItems: "center",
               color: t.textDim, position: "relative",
+              boxShadow: data.scanHero.photoUrl ? `0 8px 28px ${t.accentGlow}` : "none",
             }}>
               {data.scanHero.photoUrl ? (
                 <img
                   src={data.scanHero.photoUrl}
-                  alt="Your photo"
+                  alt="Your latest photo"
                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                 />
               ) : (
-                <div style={{ textAlign: "center", padding: 10, fontSize: 11, lineHeight: 1.4 }}>
-                  <CameraIcon color={t.textMuted} size={28} />
-                  <div style={{ marginTop: 8, color: t.textMuted, fontWeight: 700 }}>No photo yet</div>
-                  <div style={{ color: t.textDim, marginTop: 2 }}>Take one to begin</div>
+                <div style={{ textAlign: "center", padding: 16, fontSize: 13, lineHeight: 1.4 }}>
+                  <CameraIcon color={t.textMuted} size={40} />
+                  <div style={{ marginTop: 10, color: t.textMuted, fontWeight: 700, fontSize: 14 }}>No photo yet</div>
+                  <div style={{ color: t.textDim, marginTop: 4 }}>Take your first full-body photo to begin tracking</div>
                 </div>
-              )}
-            </div>
-
-            {/* Arrow */}
-            <div style={{
-              width: 32, height: 32, borderRadius: 16,
-              background: `${t.accent}26`,
-              display: "grid", placeItems: "center",
-              boxShadow: `0 0 10px ${t.accentGlow}`,
-            }}>
-              <ArrowRightIcon color={t.accent} />
-            </div>
-
-            {/* Render tile — AI-generated photorealistic body matching the user's analysis. */}
-            <div style={{
-              borderRadius: 14,
-              overflow: "hidden",
-              aspectRatio: "3 / 4",
-              background: isFemale
-                ? `linear-gradient(180deg, ${t.bgInput}, ${t.bgElevated})`
-                : "#020412",
-              border: `1px solid ${t.border}`,
-              position: "relative",
-              display: "grid", placeItems: "center",
-            }}>
-              {data.scanHero.renderUrl ? (
-                <img
-                  src={data.scanHero.renderUrl}
-                  alt="Your Flexin render"
-                  style={{
-                    width: "100%", height: "100%", objectFit: "cover",
-                    display: "block",
-                    filter: `drop-shadow(0 0 14px ${t.accentGlow})`,
-                  }}
-                />
-              ) : (
-                <>
-                  {/* Fallback: parametric SVG + grid while render is pending or unavailable */}
-                  <div style={{
-                    position: "absolute", inset: 0,
-                    backgroundImage: `
-                      linear-gradient(to right, ${t.accent}1a 1px, transparent 1px),
-                      linear-gradient(to bottom, ${t.accent}1a 1px, transparent 1px)
-                    `,
-                    backgroundSize: "32px 32px",
-                    pointerEvents: "none",
-                  }} />
-                  <SilhouetteSVG
-                    params={heroParams}
-                    isFemale={isFemale}
-                    accent={t.accent}
-                    style={{
-                      width: "92%", height: "100%",
-                      filter: `drop-shadow(0 0 10px ${t.accentGlow})`,
-                      position: "relative",
-                      animation: data.hasScan ? "flexinPulse 1.6s ease-in-out infinite" : undefined,
-                    }}
-                  />
-                  {data.hasScan && (
-                    <div style={{
-                      position: "absolute", bottom: 8, left: 8, right: 8,
-                      background: `${t.accent}cc`,
-                      color: t.accentText,
-                      fontSize: 10, fontWeight: 800, letterSpacing: 0.4,
-                      padding: "5px 8px", borderRadius: 8,
-                      textAlign: "center",
-                      backdropFilter: "blur(4px)",
-                    }}>
-                      Rendering your physique…
-                    </div>
-                  )}
-                  <style>{`
-                    @keyframes flexinPulse {
-                      0%, 100% { opacity: 0.6; }
-                      50% { opacity: 1; }
-                    }
-                  `}</style>
-                </>
               )}
             </div>
           </div>
@@ -460,6 +370,9 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
         </div>
       </div>
 
+      {/* ═════════════════════ EVOLUTION COMPARE ═════════════════════ */}
+      <EvolutionCompare t={t} scans={data.recentScans} />
+
       {/* ═════════════════════ 3-STEP PROCESS ═════════════════════ */}
       <div style={{ padding: "16px 14px 0" }}>
         <div style={{
@@ -525,6 +438,109 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
         onOpenProfile={onOpenProfile}
         active="progress"
       />
+    </div>
+  );
+}
+
+// ════════════════════════════ EVOLUTION COMPARE ════════════════════════════
+function EvolutionCompare({ t, scans }: { t: any; scans: ProgressScan[] }) {
+  const photos = (scans || []).filter((s) => !!s.photoUrl);
+  if (photos.length < 2) return null;
+  const sorted = [...photos].sort((a, b) => a.date.localeCompare(b.date));
+  const first = sorted[0];
+  const latest = sorted[sorted.length - 1];
+
+  // Gap label
+  let gapLabel = "";
+  try {
+    const d1 = new Date(first.date).getTime();
+    const d2 = new Date(latest.date).getTime();
+    const days = Math.max(0, Math.round((d2 - d1) / 86400000));
+    if (days < 14) gapLabel = `${days} day${days === 1 ? "" : "s"} apart`;
+    else if (days < 60) gapLabel = `${Math.round(days / 7)} weeks apart`;
+    else gapLabel = `${Math.round(days / 30)} months apart`;
+  } catch {
+    gapLabel = "";
+  }
+
+  return (
+    <div style={{ padding: "16px 14px 0" }}>
+      <div style={{
+        background: t.bgElevated,
+        border: `1px solid ${t.border}`,
+        borderRadius: 22,
+        padding: 16,
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: t.text }}>Evolution</div>
+          {gapLabel && (
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
+              color: t.accent,
+              background: `${t.accent}1a`,
+              padding: "4px 10px", borderRadius: 999,
+            }}>
+              {gapLabel.toUpperCase()}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <ComparePhoto t={t} label="FIRST" dateLabel={first.dateLabel} photoUrl={first.photoUrl!} />
+          <ComparePhoto t={t} label="LATEST" dateLabel={latest.dateLabel} photoUrl={latest.photoUrl!} isLatest />
+        </div>
+        <div style={{
+          marginTop: 12, textAlign: "center",
+          fontSize: 12, color: t.textMuted, lineHeight: 1.5,
+        }}>
+          Keep taking weekly photos to track your transformation.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ComparePhoto({
+  t, label, dateLabel, photoUrl, isLatest,
+}: { t: any; label: string; dateLabel: string; photoUrl: string; isLatest?: boolean }) {
+  return (
+    <div style={{
+      borderRadius: 14,
+      overflow: "hidden",
+      aspectRatio: "3 / 4",
+      background: "#0a0a0a",
+      border: `1px solid ${isLatest ? t.accent : t.border}`,
+      position: "relative",
+      boxShadow: isLatest ? `0 0 14px ${t.accentGlow}` : "none",
+    }}>
+      <img
+        src={photoUrl}
+        alt={label}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+      <div style={{
+        position: "absolute", top: 8, left: 8,
+        background: isLatest ? t.accent : "rgba(0,0,0,0.65)",
+        color: isLatest ? t.accentText : "#fff",
+        fontSize: 10, fontWeight: 800, letterSpacing: 0.6,
+        padding: "4px 8px", borderRadius: 6,
+        backdropFilter: "blur(4px)",
+      }}>
+        {label}
+      </div>
+      <div style={{
+        position: "absolute", bottom: 8, left: 8, right: 8,
+        background: "rgba(0,0,0,0.55)",
+        color: "#fff",
+        fontSize: 10, fontWeight: 700,
+        padding: "4px 8px", borderRadius: 6,
+        textAlign: "center",
+        backdropFilter: "blur(4px)",
+      }}>
+        {dateLabel}
+      </div>
     </div>
   );
 }
