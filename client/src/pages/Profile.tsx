@@ -1,8 +1,13 @@
 import React, { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
 import { useTheme } from "@/lib/ThemeProvider";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
+
+// On iOS (Capacitor) all fetches must use the absolute origin — a relative
+// '/api/...' URL resolves to capacitor://localhost which has no backend.
+const API_BASE = Capacitor.isNativePlatform() ? "https://www.flexinfitapp.com" : "";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 // We reuse the user slice from /api/dashboard, which already returns name,
@@ -113,7 +118,7 @@ export function Profile({
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const resp = await fetch("/api/profile-pic", {
+      const resp = await fetch(`${API_BASE}/api/profile-pic`, {
         method: "POST",
         body: fd,
         headers: userEmail ? { "x-user-email": userEmail } : undefined,

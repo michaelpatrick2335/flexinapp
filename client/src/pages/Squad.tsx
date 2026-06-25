@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn, getUserEmail, queryClient } from "@/lib/queryClient";
-import { pushFeedEvent } from "@/lib/feed";
+import { pushFeedEvent, getFeed, minutesAgo, type LocalFeedEvent } from "@/lib/feed";
+import { Capacitor } from "@capacitor/core";
+
+// Native iOS must hit the absolute origin — a bare '/api/...' resolves to
+// capacitor://localhost and silently 404s. Mirrors App.tsx / Profile.tsx.
+const SQUAD_API_BASE = Capacitor.isNativePlatform() ? "https://www.flexinfitapp.com" : "";
 import flexinLogo from "@/assets/flexin_logo.png";
 import maxMale from "@/assets/max_male.png";
 import maxFemale from "@/assets/max_female.png";
@@ -162,9 +167,45 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
     );
   }
 
-  const { squad, coach, activity, reactions, aiInsight, ghostMode, mvp, unreadNotifications } = data;
+  const { squad, coach, activity: serverActivity, reactions, aiInsight, ghostMode, mvp, unreadNotifications } = data;
   const memberByName = (name: string): SquadMember =>
     squad.members.find((m) => m.name === name) || { name, initials: name.slice(0, 1).toUpperCase(), bg: t.accent };
+
+  // ── Live Activity is the SAME feed as the Home dashboard SQUAD FEED card.
+  // We merge any local feed events (squad creation, workout logs) into the
+  // server's activity list, mapping each LocalFeedEvent shape to a
+  // SquadActivityItem so the row renderer is identical. Local events show
+  // first so a fresh workout shows up here instantly, exactly like on Home.
+  const localFeed: LocalFeedEvent[] = (() => {
+    try { return getFeed(getUserEmail() || "anon"); } catch { return []; }
+  })();
+  const mappedLocal: SquadActivityItem[] = localFeed.map((e) => {
+    const mins = minutesAgo(e.createdAt);
+    const timeStr =
+      mins < 1 ? "just now" :
+      mins < 60 ? `${mins}m ago` :
+      mins < 60 * 24 ? `${Math.round(mins / 60)}h ago` :
+      `${Math.round(mins / (60 * 24))}d ago`;
+    // Map our LocalFeedEvent.kind onto Squad activity kinds + reaction icons.
+    const k: SquadActivityItem["kind"] =
+      e.kind === "workout" ? "workout" :
+      e.kind === "pr" ? "pr" :
+      e.kind === "progress" ? "progress" :
+      "live";
+    const reactionIcon: SquadActivityItem["reactionIcon"] =
+      e.kind === "pr" ? "clap" : e.kind === "progress" ? "eyes" : "fire";
+    return {
+      id: typeof e.id === "number" ? e.id : Math.abs(e.id.toString().split("").reduce((a, c) => a + c.charCodeAt(0), 0)),
+      member: e.userName || "You",
+      kind: k,
+      text: e.message,
+      highlight: "",
+      time: timeStr,
+      reactionIcon,
+      reactionCount: 0,
+    };
+  });
+  const activity: SquadActivityItem[] = [...mappedLocal, ...serverActivity];
 
   return (
     <div style={{ minHeight: "100vh", background: t.bg, color: t.text, paddingBottom: 110, overflowX: "hidden" }}>
@@ -524,7 +565,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             setSentTo(memberName);
             // fire-and-forget reaction so the no-op endpoint still gets a hit
             try {
-              await fetch("/api/squad/react", {
+              await fetch(`${SQUAD_API_BASE}/api/squad/react`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ kind: "fire", target: memberName }),

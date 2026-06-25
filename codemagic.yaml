@@ -101,11 +101,18 @@ workflows:
             || /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription 'Flexin uses your camera so you can take a profile picture for your account.'" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Flexin lets you pick an image from your photo library as your profile picture.'" "$INFO_PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription 'Flexin lets you pick an image from your photo library as your profile picture.'" "$INFO_PLIST"
+          # Capacitor Camera plugin (saveToGallery=true / Photos.add) requires
+          # NSPhotoLibraryAddUsageDescription — distinct from the read key above.
+          # Without it, the Camera plugin hard-rejects the call and renders a
+          # red "You are missing NSPhotoLibraryAddUsageDescription" banner.
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Flexin saves your progress photos to your photo library so you can keep them after rendering.'" "$INFO_PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription 'Flexin saves your progress photos to your photo library so you can keep them after rendering.'" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Flexin uses your microphone in Voice Studio so you can record your own voice for guided breath exercises.'" "$INFO_PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription 'Flexin uses your microphone in Voice Studio so you can record your own voice for guided breath exercises.'" "$INFO_PLIST"
           echo "--- Patched Info.plist ---"
           /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryUsageDescription" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryAddUsageDescription" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$INFO_PLIST"
       - name: Set up code signing (decode persistent cert, add to keychain, create profile)
         script: |
