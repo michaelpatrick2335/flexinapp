@@ -73,23 +73,19 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     setGoalDismissed(true);
   }
 
-  if (isLoading || !data) {
-    return (
-      <div style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: t.textMuted, fontSize: 14 }}>Loading…</div>
-      </div>
-    );
-  }
-
-  const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, squadFeed, evolutionTimeline } = data;
-
   // Merge any client-side feed events (squad creation, workout logs) onto
   // the server feed so the dashboard's SQUAD FEED card actually populates.
   // Today the server returns []; once a feed table lands we can flip this
   // to server-only and delete the merge.
+  //
+  // IMPORTANT: this hook MUST run on every render, BEFORE the isLoading/!data
+  // early return below — otherwise React's hook-order invariant breaks the
+  // moment the dashboard query resolves and we render a blank screen.
+  const squadFeedFromData = data?.squadFeed;
   const mergedFeed = React.useMemo(() => {
-    const local = getFeed(getUserEmail() || "anon")
-      .map((e) => ({
+    let local: any[] = [];
+    try {
+      local = getFeed(getUserEmail() || "anon").map((e) => ({
         id: e.id,
         userName: e.userName,
         message: e.message,
@@ -98,8 +94,21 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
         reactions: e.reactions,
         minutesAgo: minutesAgo(e.createdAt),
       }));
-    return [...local, ...squadFeed];
-  }, [squadFeed]);
+    } catch {
+      local = [];
+    }
+    return [...local, ...(squadFeedFromData ?? [])];
+  }, [squadFeedFromData]);
+
+  if (isLoading || !data) {
+    return (
+      <div style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: t.textMuted, fontSize: 14 }}>Loading…</div>
+      </div>
+    );
+  }
+
+  const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, evolutionTimeline } = data;
   const xpPct = Math.min(100, Math.round((user.xp / user.xpToNext) * 100));
   // Resolve the chosen body-type avatar; fall back to legacy silhouette if unset.
   const silhouette = user.avatarBodyType
