@@ -30,3 +30,4 @@ android/build/
 profile-pics/
 # Rendered scan body images (runtime data)
 renders/
+.vercel
