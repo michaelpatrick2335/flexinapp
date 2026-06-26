@@ -18,6 +18,7 @@ import { Squad } from "@/pages/Squad";
 import { Profile } from "@/pages/Profile";
 import { NotificationSettings } from "@/pages/NotificationSettings";
 import { PrivacySettings } from "@/pages/PrivacySettings";
+import { Disclaimers } from "@/pages/Disclaimers";
 import { Progress } from "@/pages/Progress";
 import { Onboarding } from "@/pages/Onboarding";
 import { ExperiencePicker } from "@/pages/ExperiencePicker";
@@ -365,6 +366,7 @@ type Screen =
   | { name: "profile" }
   | { name: "notification-settings" }
   | { name: "privacy-settings" }
+  | { name: "disclaimers" }
   | { name: "progress" };
 
 function AuthenticatedShell() {
@@ -411,6 +413,7 @@ function AuthenticatedShell() {
         onOpenProgress={() => setScreen({ name: "progress" })}
         onOpenNotificationSettings={() => setScreen({ name: "notification-settings" })}
         onOpenPrivacySettings={() => setScreen({ name: "privacy-settings" })}
+        onOpenDisclaimers={() => setScreen({ name: "disclaimers" })}
         onLogOut={() => {
           clearUserEmail();
           clearCustomExercisesForCurrentUser();
@@ -428,6 +431,10 @@ function AuthenticatedShell() {
 
   if (screen.name === "privacy-settings") {
     return <PrivacySettings onBack={() => setScreen({ name: "profile" })} />;
+  }
+
+  if (screen.name === "disclaimers") {
+    return <Disclaimers onBack={() => setScreen({ name: "profile" })} />;
   }
 
   if (screen.name === "progress") {

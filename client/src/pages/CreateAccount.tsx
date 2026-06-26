@@ -196,25 +196,23 @@ export function CreateAccount({
             marginRight: "auto",
           }}
         >
-          By continuing, you agree to our{" "}
+          By continuing, you confirm you are 13 or older (16+ in the EU/UK), you accept the inherent risks of strength training, and you agree to our{" "}
           <a
-            href="https://flexinfitapp.com/terms"
+            href="https://www.flexinfitapp.com/terms.html"
             target="_blank"
             rel="noreferrer"
             style={{ color: t.accent, textDecoration: "underline" }}
           >
             Terms
-          </a>{" "}
-          and{" "}
+          </a>,{" "}
           <a
-            href="https://flexinfitapp.com/privacy"
+            href="https://www.flexinfitapp.com/privacy.html"
             target="_blank"
             rel="noreferrer"
             style={{ color: t.accent, textDecoration: "underline" }}
           >
             Privacy Policy
-          </a>
-          .
+          </a>, and Medical &amp; Fitness Disclaimer.
         </p>
         <p style={{ color: t.textMuted, fontSize: "0.9rem", margin: 0 }}>
           Already have an account?{" "}

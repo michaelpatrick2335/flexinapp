@@ -622,9 +622,9 @@ function ScanTile({ t, scan, isFemale }: { t: any; scan: ProgressScan; isFemale:
             zIndex: 2,
           }}>Latest</div>
         )}
-        {scan.renderUrl ? (
+        {scan.photoUrl ? (
           <img
-            src={scan.renderUrl}
+            src={scan.photoUrl}
             alt={scan.dateLabel}
             style={{
               width: "100%", height: "100%", objectFit: "cover",

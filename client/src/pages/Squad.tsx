@@ -147,10 +147,55 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
     setShowSquadSwitcher(false);
   }
 
+  // The right-hand reaction strip broadcasts to the WHOLE squad's live
+  // activity — not a single member. We bump the local count, fire a server
+  // event, and push it into the local feed so it surfaces on Home + Squad.
   function bumpReaction(emoji: string) {
     setReactionCounts((prev) => ({ ...prev, [emoji]: (prev[emoji] || 0) + 1 }));
-    setToast(`${emoji} sent`);
-    window.setTimeout(() => setToast((cur) => (cur === `${emoji} sent` ? null : cur)), 1200);
+    setToast(`${emoji} sent to the squad`);
+    window.setTimeout(() => setToast((cur) => (cur === `${emoji} sent to the squad` ? null : cur)), 1400);
+    try {
+      const email = getUserEmail() || "anon";
+      pushFeedEvent(email, {
+        userName: "You",
+        message: `sent ${emoji} to the squad`,
+        kind: "live",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    } catch {}
+    // Fire-and-forget to backend so the broadcast can fan out server-side
+    // (group notification) once that endpoint is wired.
+    try {
+      fetch(`${SQUAD_API_BASE}/api/squad/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-email": getUserEmail() || "" },
+        body: JSON.stringify({ kind: emoji, target: "__squad__" }),
+      }).catch(() => {});
+    } catch {}
+  }
+
+  // "Flex" button on YOUR OWN activity row — notifies the whole squad that
+  // you just hit a lift. Pushes to local feed (so it shows in Home + Squad)
+  // and pings the server to fan out a notification.
+  function broadcastFlex(activityText: string) {
+    setToast("💪 Flex sent to the squad");
+    window.setTimeout(() => setToast((cur) => (cur === "💪 Flex sent to the squad" ? null : cur)), 1500);
+    try {
+      const email = getUserEmail() || "anon";
+      pushFeedEvent(email, {
+        userName: "You",
+        message: `flexed on the squad — ${activityText}`,
+        kind: "pr",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    } catch {}
+    try {
+      fetch(`${SQUAD_API_BASE}/api/squad/flex`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-email": getUserEmail() || "" },
+        body: JSON.stringify({ message: activityText }),
+      }).catch(() => {});
+    } catch {}
   }
 
   const { data, isLoading } = useQuery<SquadPayload>({
@@ -346,7 +391,14 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
           </div>
 
           {activity.map((a) => (
-            <ActivityRow key={a.id} t={t} item={a} member={memberByName(a.member)} />
+            <ActivityRow
+              key={a.id}
+              t={t}
+              item={a}
+              member={memberByName(a.member)}
+              isSelf={a.member === "You"}
+              onFlex={() => broadcastFlex(a.text || "a new lift")}
+            />
           ))}
 
           {/* Reactions strip */}
@@ -906,7 +958,10 @@ function Sparkline({ points, color, glow }: { points: number[]; color: string; g
   );
 }
 
-function ActivityRow({ t, item, member }: { t: any; item: SquadActivityItem; member: SquadMember }) {
+function ActivityRow({ t, item, member, isSelf, onFlex }: {
+  t: any; item: SquadActivityItem; member: SquadMember;
+  isSelf?: boolean; onFlex?: () => void;
+}) {
   const icon = (() => {
     switch (item.kind) {
       case "workout":  return <DumbbellIcon color={t.accent} size={16} />;
@@ -961,15 +1016,35 @@ function ActivityRow({ t, item, member }: { t: any; item: SquadActivityItem; mem
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
         <span style={{ fontSize: 11, color: t.textDim }}>{item.time}</span>
-        <div style={{
-          background: t.bgInput, border: `1px solid ${t.border}`,
-          borderRadius: 12, padding: "3px 8px",
-          display: "flex", alignItems: "center", gap: 4,
-          fontSize: 11, color: t.text, fontWeight: 700,
-        }}>
-          <span>{reactionEmoji}</span>
-          {item.reactionCount}
-        </div>
+        {isSelf && (item.kind === "workout" || item.kind === "pr" || item.kind === "live") ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onFlex?.(); }}
+            data-testid="flex-broadcast-button"
+            style={{
+              background: t.accent, color: t.accentText,
+              border: "none", borderRadius: 12,
+              padding: "4px 10px",
+              display: "flex", alignItems: "center", gap: 4,
+              fontSize: 11, fontWeight: 800, letterSpacing: 0.4,
+              cursor: "pointer",
+              boxShadow: `0 0 8px ${t.accentGlow}`,
+            }}
+            aria-label="Flex on the squad"
+          >
+            <span style={{ fontSize: 12 }}>💪</span>
+            FLEX
+          </button>
+        ) : (
+          <div style={{
+            background: t.bgInput, border: `1px solid ${t.border}`,
+            borderRadius: 12, padding: "3px 8px",
+            display: "flex", alignItems: "center", gap: 4,
+            fontSize: 11, color: t.text, fontWeight: 700,
+          }}>
+            <span>{reactionEmoji}</span>
+            {item.reactionCount}
+          </div>
+        )}
       </div>
     </div>
   );

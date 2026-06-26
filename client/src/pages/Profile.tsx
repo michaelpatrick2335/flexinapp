@@ -1,9 +1,49 @@
 import React, { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
+
+// Shrink a data URL to <= maxSide px on the long edge and re-encode as JPEG
+// so we stay well under the backend's 1.5MB limit. Profile pics don't need
+// to be larger than ~512px on iOS hi-DPI screens.
+async function compressDataUrl(
+  dataUrl: string,
+  opts: { maxSide?: number; quality?: number } = {},
+): Promise<string> {
+  const { maxSide = 512, quality = 0.82 } = opts;
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      const ratio = Math.min(1, maxSide / Math.max(width, height));
+      width = Math.max(1, Math.round(width * ratio));
+      height = Math.max(1, Math.round(height * ratio));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas unavailable"));
+      ctx.drawImage(img, 0, 0, width, height);
+      try {
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error("Could not decode image"));
+    img.src = dataUrl;
+  });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(new Error("Could not read file"));
+    r.readAsDataURL(file);
+  });
+}
 
 // On iOS (Capacitor) all fetches must use the absolute origin — a relative
 // '/api/...' URL resolves to capacitor://localhost which has no backend.
@@ -36,6 +76,7 @@ interface ProfileProps {
   onOpenProgress?: () => void;
   onOpenNotificationSettings: () => void;
   onOpenPrivacySettings: () => void;
+  onOpenDisclaimers?: () => void;
   onLogOut: () => void;
 }
 
@@ -46,6 +87,7 @@ export function Profile({
   onOpenProgress,
   onOpenNotificationSettings,
   onOpenPrivacySettings,
+  onOpenDisclaimers,
   onLogOut,
 }: ProfileProps) {
   const t = useTheme();
@@ -112,26 +154,79 @@ export function Profile({
     ? (localStorage.getItem("flexin_user_email") || "").trim()
     : "";
 
-  async function handleAvatarSelected(file: File) {
+  // Upload a data URL to the backend. We always send JSON because the Vercel
+  // serverless handler does NOT use multer — it expects { image: <data:image/..> }.
+  // Failing to do this was the bug that made profile-pic uploads silently fail.
+  async function uploadDataUrl(rawDataUrl: string) {
     setAvatarError(null);
     setUploadingAvatar(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
+      // Compress so we stay under the 1.5MB server cap and avoid huge DB rows.
+      let dataUrl = rawDataUrl;
+      try { dataUrl = await compressDataUrl(rawDataUrl, { maxSide: 512, quality: 0.82 }); } catch {}
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userEmail) headers["x-user-email"] = userEmail;
       const resp = await fetch(`${API_BASE}/api/profile-pic`, {
         method: "POST",
-        body: fd,
-        headers: userEmail ? { "x-user-email": userEmail } : undefined,
+        body: JSON.stringify({ image: dataUrl }),
+        headers,
       });
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Upload failed" }));
+        const err = await resp.json().catch(() => ({ error: `Upload failed (${resp.status})` }));
         throw new Error(err.error || `Upload failed (${resp.status})`);
       }
+      // Force a fresh image fetch (avatarImgFailed gets reset on success).
+      setAvatarImgFailed(false);
       await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
     } catch (e: any) {
       setAvatarError(e?.message || "Upload failed");
     } finally {
       setUploadingAvatar(false);
+    }
+  }
+
+  async function handleAvatarSelected(file: File) {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await uploadDataUrl(dataUrl);
+    } catch (e: any) {
+      setAvatarError(e?.message || "Could not read photo");
+    }
+  }
+
+  // On iOS the hidden <input type="file"> doesn't always open a reliable
+  // picker inside Capacitor's WKWebView; @capacitor/camera is the canonical
+  // path and we already declare NSPhotoLibrary + NSCamera plist keys.
+  async function pickPhotoNative(source: "camera" | "library") {
+    setAvatarError(null);
+    try {
+      const photo = await Camera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: source === "camera" ? CameraSource.Camera : CameraSource.Photos,
+        width: 1024,
+        height: 1024,
+        correctOrientation: true,
+      });
+      if (photo?.dataUrl) {
+        await uploadDataUrl(photo.dataUrl);
+      }
+    } catch (e: any) {
+      // The user canceling the picker throws — don't show that as an error.
+      const msg = String(e?.message || e || "");
+      if (/cancel|denied/i.test(msg)) return;
+      setAvatarError(msg || "Could not open photo picker");
+    }
+  }
+
+  // Bottom-sheet "Take photo / Choose from library / Cancel" used on native.
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
+  function openPhotoPicker() {
+    if (Capacitor.isNativePlatform()) {
+      setPhotoSheetOpen(true);
+    } else {
+      avatarInputRef.current?.click();
     }
   }
 
@@ -222,7 +317,7 @@ export function Profile({
           {/* Edit pencil */}
           <button
             aria-label="Change profile picture"
-            onClick={() => avatarInputRef.current?.click()}
+            onClick={openPhotoPicker}
             disabled={uploadingAvatar}
             style={{
               position: "absolute", right: 6, bottom: 6,
@@ -310,7 +405,7 @@ export function Profile({
             t={t}
             icon={<PersonIcon color={t.accent} />}
             label="Change Profile Picture"
-            onClick={() => avatarInputRef.current?.click()}
+            onClick={openPhotoPicker}
           />
           <Divider t={t} />
           <Row
@@ -326,6 +421,17 @@ export function Profile({
             label="Notification Settings"
             onClick={onOpenNotificationSettings}
           />
+          {onOpenDisclaimers && (
+            <>
+              <Divider t={t} />
+              <Row
+                t={t}
+                icon={<ShieldCheckIcon color={t.accent} />}
+                label="Disclaimers & Legal"
+                onClick={onOpenDisclaimers}
+              />
+            </>
+          )}
         </RowCard>
       </div>
 
@@ -458,6 +564,56 @@ export function Profile({
                 {editSaving ? "Saving…" : "Save"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════ PHOTO SOURCE SHEET (native) ═════════════════════ */}
+      {photoSheetOpen && (
+        <div
+          onClick={() => setPhotoSheetOpen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 60,
+            background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 480,
+              background: t.bgElevated,
+              borderTopLeftRadius: 22, borderTopRightRadius: 22,
+              borderTop: `1px solid ${t.border}`,
+              padding: 18, paddingBottom: "max(env(safe-area-inset-bottom), 18px)",
+            }}
+          >
+            <div style={{ width: 44, height: 4, borderRadius: 2, background: t.border, margin: "0 auto 14px" }} />
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, marginBottom: 12 }}>Update profile photo</div>
+            <button
+              onClick={async () => { setPhotoSheetOpen(false); await pickPhotoNative("camera"); }}
+              style={{
+                width: "100%", background: t.accent, color: t.accentText,
+                border: "none", borderRadius: 14, padding: "14px 18px",
+                fontSize: 16, fontWeight: 700, cursor: "pointer", marginBottom: 10,
+              }}
+            >Take Photo</button>
+            <button
+              onClick={async () => { setPhotoSheetOpen(false); await pickPhotoNative("library"); }}
+              style={{
+                width: "100%", background: "transparent", color: t.text,
+                border: `1px solid ${t.border}`, borderRadius: 14, padding: "14px 18px",
+                fontSize: 16, fontWeight: 700, cursor: "pointer", marginBottom: 10,
+              }}
+            >Choose from Library</button>
+            <button
+              onClick={() => setPhotoSheetOpen(false)}
+              style={{
+                width: "100%", background: "transparent", color: t.textMuted,
+                border: "none", padding: "12px 18px",
+                fontSize: 15, fontWeight: 600, cursor: "pointer",
+              }}
+            >Cancel</button>
           </div>
         </div>
       )}

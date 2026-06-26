@@ -3,6 +3,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Pool } from "pg";
+import { computeMuscleGroups } from "./muscleModel";
 // Stripe is loaded dynamically per-request to avoid bundling issues
 // Using require() at module level - Vercel bundles this fine at runtime
 
@@ -417,14 +418,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           weightLbs: u.weightLbs,
           avatarUrl: u.profilePic || null,
         },
-        muscleGroups: [
-          { key: "chest",     label: "Chest",     progress: 0, streakDays: 0 },
-          { key: "back",      label: "Back",      progress: 0, streakDays: 0 },
-          { key: "legs",      label: "Legs",      progress: 0, streakDays: 0 },
-          { key: "shoulders", label: "Shoulders", progress: 0, streakDays: 0 },
-          { key: "arms",      label: "Arms",      progress: 0, streakDays: 0 },
-          { key: "core",      label: "Core",      progress: 0, streakDays: 0 },
-        ],
+        muscleGroups: await computeMuscleGroups(pool, u.id),
+        muscleGroupsMeta: {
+          disclaimer: "These percentages are estimates based on published EMG research and may not reflect your individual biomechanics. Flexin's muscle activation scores are for motivational tracking only and are not medical or training advice.",
+          windowDays: 7,
+          version: "1.0.0",
+        },
         bodyDeltas: [
           { key: "overall",   label: "Overall",   delta: 0, isOverall: true },
           { key: "chest",     label: "Chest",     delta: 0 },
@@ -488,6 +487,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json(squadPayload);
     }
 
+    // ── POST /api/squad/react ──────────────────────────────────────────────
+    // Lightweight acknowledgment endpoint. The Squad page fires these so the
+    // client UI updates feel real; full APNs fan-out can land later.
+    if (path === "/squad/react") {
+      if (method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+      const body = (req.body as any) || {};
+      return res.json({ ok: true, kind: body.kind || "", target: body.target || "" });
+    }
+
+    // ── POST /api/squad/flex ───────────────────────────────────────────────
+    // "Flex" broadcasts your latest lift to the whole squad. Ack-only for now.
+    if (path === "/squad/flex") {
+      if (method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+      const body = (req.body as any) || {};
+      return res.json({ ok: true, message: String(body.message || "") });
+    }
+
     // ── GET /api/progress ───────────────────────────────────────────────────
     // Progress tab payload. Returns intro/onboarding state until the user
     // takes their first progress scan.
@@ -501,7 +517,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user: { name: u.name || "Friend", sex: u.sex || "unspecified", isFemale },
         intro: {
           title: "Track your transformation",
-          subtitle: "Snap a weekly progress photo. We'll render a clean silhouette and chart your real changes over time.",
+          subtitle: "Photos give you real progress. Snap a weekly full-body photo and compare side-by-side over time.",
         },
         scanHero: {
           title: "Take your first scan",
@@ -517,8 +533,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         steps: [
           { number: 1, title: "Snap weekly", blurb: "One photo a week, same lighting and angle." },
-          { number: 2, title: "AI render", blurb: "We turn it into a clean silhouette in seconds." },
-          { number: 3, title: "See change", blurb: "Side-by-side scans show real progress, not vibes." },
+          { number: 2, title: "Save it", blurb: "Your photos stay private in your Flexin account." },
+          { number: 3, title: "See change", blurb: "First vs latest side-by-side — real progress, not vibes." },
         ],
         recentScans: [],
         hasScan: false,

@@ -19,6 +19,7 @@ interface DashboardPayload {
     xp: number; xpToNext: number; streakDays: number;
     avatarBodyType?: string | null;
     goalAvatarBodyType?: string | null;
+    avatarUrl?: string | null;
   };
   muscleGroups: { key: string; label: string; progress: number; streakDays: number }[];
   bodyDeltas: { key: string; label: string; delta: number; isOverall?: boolean }[];
@@ -114,6 +115,8 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   const silhouette = user.avatarBodyType
     ? avatarImageFor(user.avatarBodyType, (user.sex === "female" ? "female" : "male"))
     : defaultSilhouette;
+  // If the user uploaded a real photo, prefer it over the silhouette/avatar.
+  const heroPhoto = (user.avatarUrl && user.avatarUrl.length > 0) ? user.avatarUrl : null;
 
   const showGoalModal = !goalDismissed && !user.goalAvatarBodyType;
 
@@ -144,12 +147,13 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
         unreadAlerts={monthStats.unreadAlerts}
         isPremium={user.isPremium}
         silhouette={silhouette}
+        heroPhoto={heroPhoto}
         isFemale={isFemale}
         onOpenProfile={onOpenProfile}
       />
 
-      {/* ═════════════════════ SQUAD FEED + EVOLUTION (side by side) ═════════════════════ */}
-      <div style={{ padding: "18px 14px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      {/* ═════════════════════ SQUAD FEED + EVOLUTION (right under the avatar) ═════════════════════ */}
+      <div style={{ padding: "6px 14px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <SquadFeedCard t={t} feed={mergedFeed} onOpenFeed={onOpenFeed} onOpenSquad={onOpenSquad} />
         <EvolutionCard t={t} timeline={evolutionTimeline} silhouette={silhouette} isFemale={isFemale} onOpenProgress={onOpenProgress} />
       </div>
@@ -173,31 +177,48 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 // ════════════════════════════ HERO ════════════════════════════
 function HeroSection({
   t, userName, streakDays, formLevel, formRank, xp, xpToNext, xpPct,
-  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, isFemale, onOpenProfile,
+  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile,
 }: {
   t: any; userName: string; streakDays: number; formLevel: number; formRank: string;
   xp: number; xpToNext: number; xpPct: number;
   energy: { percent: number; message: string };
   bodyDeltas: DashboardPayload["bodyDeltas"];
   weeklyScanDaysLeft: number; unreadAlerts: number; isPremium: boolean;
-  silhouette: string; isFemale: boolean; onOpenProfile: () => void;
+  silhouette: string; heroPhoto: string | null; isFemale: boolean; onOpenProfile: () => void;
 }) {
   return (
-    <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 18, minHeight: 580, overflow: "hidden" }}>
+    <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 8, minHeight: 520, overflow: "hidden" }}>
 
-      {/* Background silhouette, centered, large.
-          - Male (dark theme): PNG has navy bg → 'screen' turns dark transparent, blue glow shows.
-          - Female (pink theme): PNG has light pink bg → 'multiply' turns light transparent, pink muscle lines show on light page. */}
+      {/* Background avatar:
+          - If the user uploaded a real photo → show it inside a rounded card.
+          - Otherwise fall back to the legacy muscle-map silhouette. */}
       <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", pointerEvents: "none" }}>
-        <img
-          src={silhouette}
-          alt={isFemale ? "Female muscle map" : "Male muscle map"}
-          style={{
-            height: 460, marginTop: 60, objectFit: "contain",
-            mixBlendMode: isFemale ? "multiply" : "screen",
-            opacity: isFemale ? 1 : 0.95,
-          }}
-        />
+        {heroPhoto ? (
+          <div style={{
+            marginTop: 70,
+            width: 240, height: 320, borderRadius: 24,
+            overflow: "hidden",
+            border: `2px solid ${t.accent}`,
+            boxShadow: `0 0 28px ${t.accentGlow}`,
+            background: t.bgElevated,
+          }}>
+            <img
+              src={heroPhoto}
+              alt="Your photo"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </div>
+        ) : (
+          <img
+            src={silhouette}
+            alt={isFemale ? "Female muscle map" : "Male muscle map"}
+            style={{
+              height: 420, marginTop: 60, objectFit: "contain",
+              mixBlendMode: isFemale ? "multiply" : "screen",
+              opacity: isFemale ? 1 : 0.95,
+            }}
+          />
+        )}
       </div>
 
       {/* Top row: flexin+ wordmark / bell + profile */}
@@ -387,10 +408,46 @@ function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: Das
 }
 
 // ════════════════════════════ EVOLUTION CARD ════════════════════════════
+// FIRST progress photo on the left, LATEST on the right, labeled by week.
+// Falls back to the legacy silhouette timeline when the user doesn't have
+// at least 2 real photos yet so the card never goes blank.
+interface ProgressScanLite {
+  id: number;
+  date: string;
+  dateLabel: string;
+  isLatest?: boolean;
+  photoUrl: string | null;
+}
+interface ProgressPayloadLite {
+  recentScans?: ProgressScanLite[];
+}
 function EvolutionCard({ t, timeline, silhouette, isFemale, onOpenProgress }: {
   t: any; timeline: DashboardPayload["evolutionTimeline"]; silhouette: string; isFemale: boolean; onOpenProgress?: () => void;
 }) {
   const openProgress = () => onOpenProgress?.();
+  const { data: progressData } = useQuery<ProgressPayloadLite>({
+    queryKey: ["/api/progress"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    staleTime: 60_000,
+  });
+  const photos = (progressData?.recentScans || []).filter((s) => !!s.photoUrl);
+  let firstPhoto: ProgressScanLite | null = null;
+  let latestPhoto: ProgressScanLite | null = null;
+  let latestWeekLabel = "LATEST";
+  if (photos.length >= 2) {
+    const sorted = [...photos].sort((a, b) => a.date.localeCompare(b.date));
+    firstPhoto = sorted[0];
+    latestPhoto = sorted[sorted.length - 1];
+    try {
+      const d1 = new Date(firstPhoto.date).getTime();
+      const d2 = new Date(latestPhoto.date).getTime();
+      const days = Math.max(0, Math.round((d2 - d1) / 86400000));
+      const weekNum = Math.max(2, Math.round(days / 7) + 1);
+      latestWeekLabel = `WEEK ${weekNum}`;
+    } catch {}
+  }
+  const showPhotos = !!(firstPhoto && latestPhoto);
+
   return (
     <div
       onClick={openProgress}
@@ -406,6 +463,23 @@ function EvolutionCard({ t, timeline, silhouette, isFemale, onOpenProgress }: {
         </button>
       </div>
 
+      {showPhotos ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 4 }}>
+            <div style={{ fontSize: 9, textAlign: "center", color: t.textMuted, fontWeight: 700, letterSpacing: 0.4 }}>WEEK 1</div>
+            <div style={{ fontSize: 9, textAlign: "center", color: t.accent, fontWeight: 800, letterSpacing: 0.4 }}>{latestWeekLabel}</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div style={{ aspectRatio: "3 / 4", borderRadius: 10, overflow: "hidden", border: `1px solid ${t.border}`, background: "#0a0a0a" }}>
+              <img src={firstPhoto!.photoUrl!} alt="First scan" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+            <div style={{ aspectRatio: "3 / 4", borderRadius: 10, overflow: "hidden", border: `2px solid ${t.accent}`, boxShadow: `0 0 10px ${t.accentGlow}`, background: "#0a0a0a" }}>
+              <img src={latestPhoto!.photoUrl!} alt="Latest scan" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
       {/* Labels row */}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${timeline.length}, 1fr)`, gap: 2, marginBottom: 4 }}>
         {timeline.map((w, i) => (
@@ -462,6 +536,8 @@ function EvolutionCard({ t, timeline, silhouette, isFemale, onOpenProgress }: {
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 }

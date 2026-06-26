@@ -1,0 +1,468 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "lastUpdated": "2026-06-26",
+    "disclaimer": "These percentages are estimates based on published EMG research and may not reflect your individual biomechanics. Flexin's muscle activation scores are for motivational tracking only and are not medical or training advice.",
+    "methodology": "Relative contribution percentages are derived from surface EMG (sEMG) amplitude ratios reported across peer-reviewed studies, normalized so that all credited muscles sum to ~100 per exercise. Raw MVIC values are not directly comparable across muscles or studies; these weights reflect within-exercise relative loading patterns. See MUSCLE_MODEL.md for full citations.",
+    "muscleGroups": ["chest", "back", "shoulders", "biceps", "triceps", "quads", "glutes", "hamstrings", "calves", "core_abs", "forearms"]
+  },
+
+  "bench_press": {
+    "displayName": "Bench Press (Flat)",
+    "category": "upper_push",
+    "muscles": {
+      "chest": 55,
+      "shoulders": 20,
+      "triceps": 22,
+      "core_abs": 3
+    },
+    "primary": ["chest"],
+    "secondary": ["shoulders", "triceps"],
+    "notes": "Flat bench (0°) produces greatest sternal/lower pectoralis major activation (~27% MVIC for all three pec heads at equal levels). Anterior deltoid activates at ~26% MVIC; triceps brachii consistent ~15% MVIC across all angles. Shoulders weighting reflects anterior deltoid dominance as a synergist. Core_abs reflects stabilizer demand. Sources: Rodríguez-Ridao et al. (2020, IJERPH, PMC7579505); Coratella et al. (2019, EJSS); systematic review by Lauver et al. (2016, PLOS ONE PMC5514590)."
+  },
+
+  "incline_bench_press": {
+    "displayName": "Incline Bench Press",
+    "category": "upper_push",
+    "muscles": {
+      "chest": 45,
+      "shoulders": 28,
+      "triceps": 22,
+      "core_abs": 5
+    },
+    "primary": ["chest", "shoulders"],
+    "secondary": ["triceps"],
+    "notes": "At 30°–45° inclination, anterior deltoid EMG rises to ~30–33% MVIC while upper pec (clavicular head) increases to ~28–30% MVIC vs flat; sternocostal pec decreases. Triceps brachii remains stable (~15% MVIC). Chest share lowered vs flat bench to reflect loss of sternal/lower pec contribution. Sources: Rodríguez-Ridao et al. (2020, PMC7579505); Coratella et al. (2019, EJSS) — clavicular head more excited in incline bench press; Lauver et al. (2016, PLOS ONE)."
+  },
+
+  "push_up": {
+    "displayName": "Push-Up",
+    "category": "upper_push",
+    "muscles": {
+      "chest": 50,
+      "shoulders": 18,
+      "triceps": 22,
+      "core_abs": 10
+    },
+    "primary": ["chest"],
+    "secondary": ["shoulders", "triceps", "core_abs"],
+    "notes": "Muscle activation pattern mirrors flat bench press for chest/shoulder/triceps. Core_abs weighted higher than bench press because bodyweight plank position requires substantially more rectus abdominis and oblique stabilization. Triceps long head activation is elevated in standard push-up vs bench-only position. Sources: ACE EMG analysis (Boehler, 2011); Stronska et al. (2022, Sensors, PMC9781216) comparing pressing variations; estimated core_abs share from plank EMG data (efsupit.ro 2025 — RA 37%, EO 34% of plank activity)."
+  },
+
+  "overhead_press": {
+    "displayName": "Overhead Press (Barbell)",
+    "category": "upper_push",
+    "muscles": {
+      "shoulders": 55,
+      "triceps": 25,
+      "chest": 8,
+      "back": 7,
+      "core_abs": 5
+    },
+    "primary": ["shoulders"],
+    "secondary": ["triceps"],
+    "notes": "Front (military) barbell overhead press: anterior deltoid is primary mover; medial deltoid contributes significantly. Anterior deltoid mean ~33% MVIC (shoulder press vs other exercises). Triceps brachii required for full elbow extension. Upper trapezius and serratus anterior contribute above 120° shoulder elevation for scapular rotation; grouped under 'back'. Pectoralis major (clavicular head) involved in initial push (~8%). Sources: Coratella et al. (2022, EJSS) — front vs back OHP; Journal of Human Kinetics (2020, PMC7706677) — shoulder press AD 33.3% MVIC; Stronska et al. (2022, Sensors, PMC9781216); Saeterbakken & Fimland comparisons."
+  },
+
+  "dumbbell_shoulder_press": {
+    "displayName": "Dumbbell Shoulder Press",
+    "category": "upper_push",
+    "muscles": {
+      "shoulders": 58,
+      "triceps": 22,
+      "chest": 8,
+      "core_abs": 7,
+      "back": 5
+    },
+    "primary": ["shoulders"],
+    "secondary": ["triceps"],
+    "notes": "Dumbbell variant elicits similar or slightly higher anterior/posterior deltoid activation vs barbell due to greater stabilization demand (Saeterbakken & Fimland). Core_abs slightly higher than barbell due to unilateral stabilization demand when standing. DB press anterior deltoid ~63% MVIC (Int J Exercise Sci, PMC6033506). Sources: Saeterbakken & Fimland (dumbbell vs barbell shoulder press); Int J Exercise Sci (2018, PMC6033506) — AD 63.3% MVIC dumbbell OHP; Stronska et al. (2022, Sensors, PMC9781216)."
+  },
+
+  "lateral_raise": {
+    "displayName": "Lateral Raise",
+    "category": "upper_push",
+    "muscles": {
+      "shoulders": 85,
+      "back": 10,
+      "triceps": 5
+    },
+    "primary": ["shoulders"],
+    "secondary": ["back"],
+    "notes": "Medial deltoid is the primary target; LR-neutral grip produces greatest medial deltoid sEMG (>48% MVIC). Anterior deltoid ~80% in LR-external, posterior deltoid ~36%; medial deltoid strongest of the three in lateral raise. Upper trapezius contributes as scapular stabilizer (~10%). Supraspinatus co-activates throughout abduction (grouped under back/shoulders). Triceps brachii minor stabilizer role. Sources: Coratella et al. (2020, IJERPH, PMC7503819) — medial deltoid in LR-neutral > LR-external; Journal of Human Kinetics (2020, PMC7706677) — lateral raise MD 30.3% MVIC; Wills (2014, UW-Madison thesis)."
+  },
+
+  "pull_up": {
+    "displayName": "Pull-Up (Overhand)",
+    "category": "upper_pull",
+    "muscles": {
+      "back": 55,
+      "biceps": 25,
+      "shoulders": 10,
+      "core_abs": 7,
+      "forearms": 3
+    },
+    "primary": ["back"],
+    "secondary": ["biceps"],
+    "notes": "Latissimus dorsi activation 117–130% MVIC (supramaximal at peak). Biceps brachii 78–96% MVIC. Lower trapezius significantly more active than in chin-up (~45–56% MVIC). Posterior deltoid 10–15% MVIC as shoulder stabilizer. Core/abs includes rectus abdominis ~31–35% MVIC and external obliques as stabilizers. Sources: Youdas et al. (2010, JOSPT, PubMed 21068680) — pull-up/chin-up sEMG; Snarr et al. (2018, JPFMTS) pull-up vs alternatives; Doma et al. (2013) chin-up vs lat pulldown comparison."
+  },
+
+  "lat_pulldown": {
+    "displayName": "Lat Pulldown",
+    "category": "upper_pull",
+    "muscles": {
+      "back": 55,
+      "biceps": 22,
+      "shoulders": 12,
+      "core_abs": 6,
+      "forearms": 5
+    },
+    "primary": ["back"],
+    "secondary": ["biceps"],
+    "notes": "Latissimus dorsi is primary (45–62% MVIC across grip variations, consistently higher than synergists). Biceps brachii as elbow flexor synergist. Posterior deltoid contributes as shoulder stabilizer. Wide pronated grip produces higher LD activation than supinated grip. Upper trapezius, rhomboids contribute to scapular retraction (included in back%). Core stabilization lower than pull-up due to seated position. Sources: Lehman et al. (2004, Dynamic Medicine PMC449729) — lat pulldown grip variations; Semanticscholar lat pulldown back muscle analysis; Doma et al. (2013) — chin-up vs lat pulldown; Snarr et al. (2018, JPFMTS)."
+  },
+
+  "barbell_row": {
+    "displayName": "Barbell Row (Bent-Over)",
+    "category": "upper_pull",
+    "muscles": {
+      "back": 60,
+      "biceps": 20,
+      "shoulders": 10,
+      "core_abs": 7,
+      "forearms": 3
+    },
+    "primary": ["back"],
+    "secondary": ["biceps"],
+    "notes": "Latissimus dorsi activation greater in seated row/bent-over row than pulldowns in some studies. Middle trapezius/rhomboids highly activated — Lehman et al. (2004) found seated row produced highest trapezius/rhomboid activity. Posterior deltoid (grouped under shoulders) contributes to horizontal abduction component. Core_abs reflects erector spinae and trunk stabilization demand of unsupported hinge position; erector spinae contribution included in 'back' total. Sources: Lehman et al. (2004, Dynamic Medicine, PMC449729); ACE best back exercise review (acefitness.org 2018); barbell row ROM study PubMed 40513198 (2025) — LD, TT, RD, BB."
+  },
+
+  "dumbbell_row": {
+    "displayName": "Dumbbell Row (Single-Arm)",
+    "category": "upper_pull",
+    "muscles": {
+      "back": 58,
+      "biceps": 22,
+      "shoulders": 10,
+      "core_abs": 7,
+      "forearms": 3
+    },
+    "primary": ["back"],
+    "secondary": ["biceps"],
+    "notes": "Muscle activation pattern closely mirrors barbell row. Single-arm variant may elicit slightly greater unilateral core stabilization demand (contralateral obliques active). LD, middle trapezius, posterior deltoid activation comparable. Estimated — derived from barbell row EMG patterns with minor adjustment for unilateral demand. Sources: Comparison of lat pulldown/barbell row/dumbbell row for LD, TM, DP (Academia.edu 2024); Lehman et al. (2004, PMC449729); ACE best back exercise review."
+  },
+
+  "face_pull": {
+    "displayName": "Face Pull",
+    "category": "upper_pull",
+    "muscles": {
+      "shoulders": 55,
+      "back": 35,
+      "biceps": 8,
+      "forearms": 2
+    },
+    "primary": ["shoulders"],
+    "secondary": ["back"],
+    "notes": "Posterior deltoid is primary mover (70–85% max activation); external rotation component engages infraspinatus/teres minor (rotator cuff, grouped under shoulders). Middle trapezius 60–75% and lower trapezius 50–65% provide scapular retraction (grouped under back). Rhomboids 55–70%. Biceps brachii as elbow flexion synergist (20–30%). Sources: Face pull EMG table (snuggymom.com citing EMG data) — posterior deltoid 70–85%, mid trap 60–75%, lower trap 50–65%; PubMed 15296366 (Escamilla & Yamashiro 2004) for rotator cuff involvement; estimated contribution distribution."
+  },
+
+  "biceps_curl": {
+    "displayName": "Biceps Curl (Barbell/Dumbbell)",
+    "category": "arm_isolation",
+    "muscles": {
+      "biceps": 75,
+      "forearms": 15,
+      "shoulders": 10
+    },
+    "primary": ["biceps"],
+    "secondary": ["forearms"],
+    "notes": "Supinated grip produces greatest biceps brachii activation: 92–98% MVIC. Brachialis also activated (~45–55% MVIC) — grouped under biceps as part of the elbow flexor complex. Brachioradialis 30–40% MVIC grouped under forearms. Anterior deltoid contributes as shoulder flexor stabilizer (~10%). Sources: AIP Publishing (2024) comparison of curl variants; Sports Basel (2023, PMC10054060) — supinated grip produces greatest biceps brachii; JEFIT EMG summary citing barbell curl 96% MVC; Garage Gym Reviews citing Sports Basel study."
+  },
+
+  "hammer_curl": {
+    "displayName": "Hammer Curl",
+    "category": "arm_isolation",
+    "muscles": {
+      "biceps": 45,
+      "forearms": 40,
+      "shoulders": 15
+    },
+    "primary": ["forearms"],
+    "secondary": ["biceps"],
+    "notes": "Neutral grip shifts load to brachioradialis (76–84% MVIC) and brachialis (68–75% MVIC) at expense of biceps brachii (42–50% MVIC). Brachioradialis and brachialis grouped under forearms for this exercise. Anterior deltoid shoulder stabilizer role unchanged. Sources: AIP Publishing (2024) — brachialis greatest in reverse/neutral curl; Sports Basel (2023, PMC10054060) — lowest biceps brachii excitation with pronated grip; Alibaba product guide citing EMG for hammer vs biceps curl (76–84% BR, 68–75% brachialis, 42–50% BB); MyoMax Fitness analysis."
+  },
+
+  "triceps_pushdown": {
+    "displayName": "Triceps Pushdown (Cable)",
+    "category": "arm_isolation",
+    "muscles": {
+      "triceps": 85,
+      "forearms": 10,
+      "shoulders": 5
+    },
+    "primary": ["triceps"],
+    "secondary": ["forearms"],
+    "notes": "Cable pushdown targets lateral and medial heads primarily when shoulders are at neutral (0° elevation). Long head less active than in overhead position. Lateral head ~77–81% MVIC. Flexor carpi radialis (forearms) activated for wrist stabilization. Pronated vs supinated grip produces minor differences in long head activation (~4% MVIC difference — not practically significant). Sources: Villalba et al. (2024, efsupit) — forearm position and triceps pushdown; SuppVersity EMG series (Boeckh-Behrens & Buskies 2000 data) — cable pushdown lateral/medial head dominant; triceps pushdown long vs lateral head study (dspace.unimap.edu.my)."
+  },
+
+  "triceps_extension": {
+    "displayName": "Triceps Extension (Overhead/Skull Crusher)",
+    "category": "arm_isolation",
+    "muscles": {
+      "triceps": 88,
+      "shoulders": 7,
+      "forearms": 5
+    },
+    "primary": ["triceps"],
+    "secondary": ["forearms"],
+    "notes": "Overhead elbow extension (shoulder flexed to 180°) emphasizes the long head of triceps brachii due to its bi-articular origin (medial head dominant at high shoulder elevation per Kholinne et al. 2018). Triceps hypertrophy substantially greater with overhead vs neutral arm position (PubMed 35819335). Skull crusher (lying extension) emphasizes long + lateral heads simultaneously. Shoulder stabilization minor. Sources: PubMed 35819335 (Maeo et al. 2023) — overhead extension produces greater hypertrophy; Kholinne et al. (2018, PMC6136322) — medial head dominant at 90°+ shoulder elevation; efsupit (Villalba et al. 2024); SuppVersity (Boeckh-Behrens & Buskies 2000) — overhead extension for long head."
+  },
+
+  "dips": {
+    "displayName": "Dips (Parallel Bar)",
+    "category": "upper_push",
+    "muscles": {
+      "triceps": 40,
+      "chest": 35,
+      "shoulders": 20,
+      "core_abs": 5
+    },
+    "primary": ["triceps", "chest"],
+    "secondary": ["shoulders"],
+    "notes": "Dips activate both triceps and chest significantly. Upright torso = more triceps dominant; forward lean = more chest dominant. EMG data: dips rated among top triceps exercises (comparable to triangle push-ups and kickbacks) for long and lateral head activation (University of Wisconsin ACE study, krigolsonteaching.com). Anterior deltoid highly active in pressing phase. Wider grip dips shift load toward pectorals. Sources: ACE/krigolsonteaching.com EMG study — dips comparable to triangle push-ups for triceps; SuppVersity Boeckh-Behrens & Buskies 2000 — dips effective for both heads; Wills (2014, UW-Madison) — dips second-highest anterior deltoid."
+  },
+
+  "back_squat": {
+    "displayName": "Back Squat",
+    "category": "lower_body",
+    "muscles": {
+      "quads": 45,
+      "glutes": 28,
+      "hamstrings": 10,
+      "core_abs": 10,
+      "back": 5,
+      "calves": 2
+    },
+    "primary": ["quads"],
+    "secondary": ["glutes", "core_abs"],
+    "notes": "Vastus lateralis 97–110% MVIC, vastus medialis 96% MVIC, rectus femoris 102% MVIC (Korak et al. 2018). Gluteus maximus 80% MVIC (Korak 2018); upper GM mean 29.4% MVIC (Contreras 2015). Biceps femoris 14–78% MVIC (range by depth/load). Erector spinae as trunk stabilizer included in back%. Core_abs reflects high spinal demand of barbell back squat. Sources: Korak et al. (2018) in Martin-Fuentes review (PMC7046193); Contreras et al. (2015, JAB) — upper Gmax 29.4% MVIC back squat; Squat EMG guide (inara.technology 2026); Applied Bionics & Biomechanics (PMC5435978, 2017)."
+  },
+
+  "front_squat": {
+    "displayName": "Front Squat",
+    "category": "lower_body",
+    "muscles": {
+      "quads": 50,
+      "glutes": 24,
+      "hamstrings": 8,
+      "core_abs": 10,
+      "back": 6,
+      "calves": 2
+    },
+    "primary": ["quads"],
+    "secondary": ["glutes", "core_abs"],
+    "notes": "Front squat shifts load anteriorly, increasing demand on quadriceps (upright torso produces greater knee extension moment). Korak et al. (2018) found front squat RF 101% MVIC, VL 102% MVIC, VM 98% MVIC vs back squat values of similar magnitude; glute max increased to 94% MVIC in front squat. Core_abs elevated due to greater anterior trunk demand. Sources: Korak et al. (2018) in PMC7046193; Squat EMG inara.technology (2026) — 'higher quad activation than both back squat variations'; Escamilla et al. (2001) front vs back squat biomechanics."
+  },
+
+  "leg_press": {
+    "displayName": "Leg Press",
+    "category": "lower_body",
+    "muscles": {
+      "quads": 55,
+      "glutes": 25,
+      "hamstrings": 8,
+      "calves": 7,
+      "core_abs": 5
+    },
+    "primary": ["quads"],
+    "secondary": ["glutes"],
+    "notes": "Quad activation comparable to barbell squat at matched loads; erector spinae very low (machine eliminates spinal stabilization demand). Glute activation varies dramatically with foot placement — high foot placement increases glute activation; standard placement is quad-dominant (value reflects standard/mid placement). Gastrocnemius/soleus active as ankle stabilizers. Core_abs minimal — machine back support removes trunk stabilization demand. Sources: Inara.technology squat EMG guide (2026) — 'leg press quads comparable to squat; erector spinae very low'; Lower Extremity Review (lermagazine.com) — plantar flexor activation 49–52% MVIC during leg press."
+  },
+
+  "lunge": {
+    "displayName": "Lunge",
+    "category": "lower_body",
+    "muscles": {
+      "quads": 42,
+      "glutes": 28,
+      "hamstrings": 12,
+      "core_abs": 10,
+      "calves": 5,
+      "back": 3
+    },
+    "primary": ["quads", "glutes"],
+    "secondary": ["hamstrings", "core_abs"],
+    "notes": "Lunge produces high quad and glute activation in the front leg. Adductors also active for frontal plane stability (not tracked separately here, credited under core_abs/back). Rectus femoris, vastus medialis/lateralis dominant. Gluteus maximus and gluteus medius both recruited for hip extension and stabilization. Hamstrings contribute at hip extension completion. Core/back reflects trunk stabilization demand of split stance. Sources: Inara.technology squat EMG (2026); Klokeavskade Mausehund (2018) — unilateral barbell exercises; Towards evidence-based strength training (BMC Sports, PMC5513080)."
+  },
+
+  "bulgarian_split_squat": {
+    "displayName": "Bulgarian Split Squat",
+    "category": "lower_body",
+    "muscles": {
+      "quads": 44,
+      "glutes": 28,
+      "hamstrings": 12,
+      "core_abs": 10,
+      "calves": 4,
+      "back": 2
+    },
+    "primary": ["quads", "glutes"],
+    "secondary": ["hamstrings", "core_abs"],
+    "notes": "High quad activation in front leg (rectus femoris, VMO consistently among highest of any lower-body exercise). Gluteus medius highly activated (0.895 ICC) for pelvic stability; gluteus maximus for hip extension. Biceps femoris activates for hip extension at top. Core demand high from single-leg instability — higher than bilateral squat. Sources: PLoS ONE (PMC6709890, 2019) — Bulgarian squat vs suspended lunge EMG; rectus femoris, biceps femoris, gluteus medius measured; inara.technology (2026) — 'quads very high, consistently among highest'; BMC Sports (PMC5513080) — split squat VL/VM slightly higher medial activation."
+  },
+
+  "conventional_deadlift": {
+    "displayName": "Deadlift (Conventional)",
+    "category": "posterior_chain",
+    "muscles": {
+      "back": 28,
+      "glutes": 22,
+      "hamstrings": 20,
+      "quads": 18,
+      "core_abs": 7,
+      "forearms": 5
+    },
+    "primary": ["back", "glutes", "hamstrings"],
+    "secondary": ["quads", "core_abs"],
+    "notes": "Conventional deadlift: highly multi-joint. Gluteus maximus mean 72–95% MVIC; biceps femoris 82–108% MVIC; erector spinae 86–99% MVIC; vastus lateralis 97–128% MVIC across studies. Erector spinae + lumbar multifidus (grouped under back) very high. Quads contribute to knee extension from floor. Forearms represent grip/wrist extensors. Core bracing is isometric, EMG contribution real but non-moving. Sources: Martin-Fuentes et al. (2020, PMC7046193) systematic review — Andersen (2018): Gmax ~95%, BF ~108%, ES ~86%; Korak (2018): Gmax 72%, VL 104%; Nijem (2016): ES 97.9%."
+  },
+
+  "romanian_deadlift": {
+    "displayName": "Romanian Deadlift",
+    "category": "posterior_chain",
+    "muscles": {
+      "hamstrings": 38,
+      "glutes": 28,
+      "back": 22,
+      "core_abs": 7,
+      "forearms": 5
+    },
+    "primary": ["hamstrings", "glutes"],
+    "secondary": ["back"],
+    "notes": "RDL removes the knee-break, making it a hip-hinge dominant movement. Hamstrings (hip extension + knee flexion) primary. Lee et al. (2018): biceps femoris 56.66% peak RMS; gluteus maximus 46.88% peak RMS. Erector spinae high as primary trunk stabilizer during forward lean (grouped under back). Quad contribution minimal vs conventional deadlift. Sources: Lee et al. (2018) in PMC7046193 — RDL GM 46.88%, BF 56.66% peak RMS; McCurdy (2018) — stiff leg DL Gmax 51.1% mean concentric, hamstrings 39.8%; Schoenfeld et al. (2015) in PMC7046193 — semitendinosus ~125% upper in SLDL."
+  },
+
+  "hip_thrust": {
+    "displayName": "Hip Thrust (Barbell)",
+    "category": "posterior_chain",
+    "muscles": {
+      "glutes": 60,
+      "hamstrings": 22,
+      "quads": 12,
+      "core_abs": 6
+    },
+    "primary": ["glutes"],
+    "secondary": ["hamstrings"],
+    "notes": "Hip thrust produces the highest gluteus maximus EMG of common exercises. Contreras et al. (2015): upper Gmax mean 69.5% MVIC (2.4× back squat); lower Gmax mean 86.75% MVIC. Poin-T GO Research (2026): bilateral hip thrust Gmax 119% MVC (supramaximal). Biceps femoris 40.78% MVIC (Contreras 2015) as hamstring contributor. Vastus lateralis ~99% MVIC. Core bracing required throughout movement. Sources: Contreras et al. (2015, JAB) andrewvigotsky.com/static/studies; Poin-T GO Research (2026, poin-t-go.com) — bilateral BHT GM 119% MVC, BF 58% MVC; inara.technology hip thrust muscle activation."
+  },
+
+  "glute_bridge": {
+    "displayName": "Glute Bridge",
+    "category": "posterior_chain",
+    "muscles": {
+      "glutes": 55,
+      "hamstrings": 25,
+      "quads": 12,
+      "core_abs": 8
+    },
+    "primary": ["glutes"],
+    "secondary": ["hamstrings"],
+    "notes": "Glute bridge produces high glute activation (~65% MVIC mean; Contreras et al. 2015 comparison). ~13 percentage points lower than hip thrust at equivalent loads. Hamstring contribution slightly less than hip thrust due to shorter lever arm. Core bracing maintains lumbar neutral. Estimated relative to hip thrust data and Contreras 2011/2015 comparisons. Sources: Contreras, Cronin & Schoenfeld (2011, 2015) as cited in poin-t-go.com/en/exercises/hip-thrust-vs-glute-bridge-difference — 'hip thrust averaged 78% MVIC, glute bridge ~65% MVIC'; inara.technology hip thrust data."
+  },
+
+  "hamstring_curl": {
+    "displayName": "Hamstring Curl (Lying/Seated)",
+    "category": "posterior_chain",
+    "muscles": {
+      "hamstrings": 80,
+      "calves": 12,
+      "glutes": 8
+    },
+    "primary": ["hamstrings"],
+    "secondary": ["calves"],
+    "notes": "Isolated knee-flexion exercise; biceps femoris, semitendinosus, semimembranosus are primary targets. Gastrocnemius crosses the knee and is recruited as a secondary knee flexor (~12%). Gluteus maximus minor isometric stabilizer during prone position. The lying curl preferentially recruits long head of biceps femoris and semitendinosus. Sources: Cross-sectional EMG study of hamstring exercises (IJSPT scholasticahq.com 2021); Bourne et al. (2017) in PMC7046193 — biceps femoris ~55%, semitendinosus ~50% mean concentric; estimated calves contribution from gastrocnemius anatomy."
+  },
+
+  "leg_extension": {
+    "displayName": "Leg Extension",
+    "category": "lower_body",
+    "muscles": {
+      "quads": 92,
+      "core_abs": 5,
+      "calves": 3
+    },
+    "primary": ["quads"],
+    "secondary": [],
+    "notes": "Isolated open-chain knee extension exercise; rectus femoris, vastus lateralis, vastus medialis, vastus intermedius are the only primary movers. EMG activation patterns: VM activation 47–70% MVIC at increasing knee flexion angles (PMC4316497). Very high VMO and rectus femoris targeting. Noted by inara.technology as 'produces very high RF and VMO activation, targeted patellar tendon and VMO exercise'. Sources: Journal of the Japanese Physical Therapy Association (PMC4316497) — VM at 0–30° 47.6% MVIC, 30–60° 62.5% MVIC, 60–90° 70.2% MVIC; inara.technology squat EMG guide."
+  },
+
+  "calf_raise": {
+    "displayName": "Calf Raise (Standing)",
+    "category": "lower_body",
+    "muscles": {
+      "calves": 92,
+      "core_abs": 5,
+      "hamstrings": 3
+    },
+    "primary": ["calves"],
+    "secondary": [],
+    "notes": "Standing calf raise isolates the triceps surae (gastrocnemius + soleus). Gastrocnemius (lateral and medial) and soleus activate at comparable levels (~50–52% MVIC). Gastrocnemius is preferentially targeted over soleus in standing (vs seated) due to knee position. Hamstrings minor as knee stabilizers. Sources: Lower Extremity Review (lermagazine.com) — gastrocnemius lateralis 50.7%, medialis 52.19%, soleus 51.34% during calf raises; similar values for leg press plantar flexion — no significant difference in plantar flexor activation between exercises."
+  },
+
+  "plank": {
+    "displayName": "Plank",
+    "category": "core",
+    "muscles": {
+      "core_abs": 80,
+      "back": 12,
+      "shoulders": 5,
+      "quads": 3
+    },
+    "primary": ["core_abs"],
+    "secondary": ["back"],
+    "notes": "Plank activates rectus abdominis (~37% total activation), external obliques (~34%), internal obliques contributing to the remaining abs activation (total abs >87% of plank activation). Erector spinae active as spinal stabilizer (~12%). Anterior deltoid/rotator cuff isometrically stabilize shoulder girdle (~5%). Quads hold extended knee position. Core allocation reflects RA>EO>IL activation hierarchy. Sources: efsupit.ro (2025) — plank RA 37.17%, EO 33.77%, collectively >87% of muscle activation; Spinal muscle thickness EMG study (Sports PMC10458255, 2023) — RA > EO > IL in plank; Brookbush Institute EMG analysis."
+  },
+
+  "hanging_leg_raise": {
+    "displayName": "Hanging Leg Raise",
+    "category": "core",
+    "muscles": {
+      "core_abs": 70,
+      "back": 10,
+      "forearms": 10,
+      "shoulders": 5,
+      "quads": 5
+    },
+    "primary": ["core_abs"],
+    "secondary": ["forearms"],
+    "notes": "Hanging leg raise produces substantial rectus abdominis and hip flexor activation. During leg raise the hip flexors (iliopsoas, rectus femoris) are heavily recruited in addition to abs — the combined abdominal demand is estimated here. Forearms/grip as significant isometric stabilizer during hang. Erector spinae isometrically stabilized. Youdas et al. (2010) found hanging exercises produce RA ~31–35% MVIC (external oblique component of pull-up). Core_abs estimate reflects combined RA + EO + hip flexor recruitment typical of hanging leg raise. Sources: Youdas et al. (2010, PubMed 21068680) — external oblique activation during pull-ups; ACE-sponsored ab exercise study (Boehler 2011); estimated from hanging position plus leg raise mechanics."
+  },
+
+  "cable_crunch": {
+    "displayName": "Cable Crunch",
+    "category": "core",
+    "muscles": {
+      "core_abs": 82,
+      "back": 10,
+      "shoulders": 5,
+      "forearms": 3
+    },
+    "primary": ["core_abs"],
+    "secondary": ["back"],
+    "notes": "Cable crunch is a loaded spinal flexion exercise with high rectus abdominis activation. At higher loads (80–100% 1RM), abdominal synergy markedly increases — all abdominal muscles (RA, obliquus externus, rectus femoris) significantly more recruited at full load (PubMed 19376473). Erector spinae isometrically stabilizes lumbar spine. Cable creates constant tension unlike bodyweight crunch. Sources: PubMed 19376473 (Phys Ther Sport 2009) — crunch EMG with loads; RA, EO, RF activation increased at higher 1RM%; MedCrave (medcraveonline.com 2024) — static curl-up with hands behind neck 81% MVIC for RA; ACE ab study as general reference."
+  },
+
+  "russian_twist": {
+    "displayName": "Russian Twist",
+    "category": "core",
+    "muscles": {
+      "core_abs": 80,
+      "back": 12,
+      "shoulders": 5,
+      "forearms": 3
+    },
+    "primary": ["core_abs"],
+    "secondary": ["back"],
+    "notes": "Russian twist is a rotational exercise primarily targeting external and internal obliques, with rectus abdominis as a stabilizer. The anti-rotation and rotation demand produces high oblique EMG. Erector spinae bilateral co-activation required for lumbar stability. Anterior deltoid/rotator cuff of weighted arm contributes at shoulder. Distribution estimated based on oblique-dominant rotational exercise pattern and plank/crunch comparative data. Sources: Estimated from rotational exercise EMG patterns; medcraveonline.com (2024) core muscle activity review; ACE-sponsored core exercise research. Note: specific Russian twist EMG studies are limited; distribution estimated from comparable rotational exercises."
+  }
+}
