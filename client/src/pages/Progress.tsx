@@ -79,6 +79,14 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // After Camera returns a dataUrl we show a Keep-It / Retake preview before
+  // committing the upload. This stops accidental shots from polluting the
+  // Recent Scans strip.
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  // Ref the Recent Scans section so we can smooth-scroll there after a
+  // successful upload — the user wants the new scan to be visible
+  // immediately at the bottom strip, no manual scrolling.
+  const recentScansRef = useRef<HTMLDivElement | null>(null);
 
   // Push the bytes (as JSON base64) up to the API. The endpoint runs the
   // photo through Gemini and returns { photoUrl, renderUrl, status }.
@@ -187,13 +195,39 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
         setUploadError("No photo returned");
         return;
       }
-      await uploadDataUrl(dataUrl);
+      // Stage the photo as pending so the user can review BEFORE we upload.
+      // The user explicitly asked for a "Keep it?" confirmation after
+      // shooting a progress photo so accidental snaps don't fill up Recent
+      // Scans.
+      setPendingPhoto(dataUrl);
     } catch (e: any) {
       // User cancel returns an error with message like 'User cancelled photos app'
       const msg = String(e?.message || e || "");
       if (/cancel/i.test(msg)) return; // silent cancel
       setUploadError(msg || "Couldn't open camera");
     }
+  }
+
+  // Web path also stages a pending preview now — wired below at the file
+  // input handler.
+  async function handleFileChosen(file: File) {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setPendingPhoto(dataUrl);
+    } catch (e: any) {
+      setUploadError(e?.message || "Couldn't read photo");
+    }
+  }
+
+  async function confirmPendingPhoto() {
+    if (!pendingPhoto) return;
+    const dataUrl = pendingPhoto;
+    setPendingPhoto(null);
+    await uploadDataUrl(dataUrl);
+    // Smooth scroll to Recent Scans so the new photo is visible right away.
+    requestAnimationFrame(() => {
+      recentScansRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
   }
 
   if (isLoading || !data) {
@@ -371,7 +405,7 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handlePhotoSelected(f);
+              if (f) handleFileChosen(f);
               e.target.value = ""; // reset so picking the same file again still fires
             }}
           />
@@ -406,8 +440,61 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
         </div>
       </div>
 
+      {/* ═════════════════════ KEEP-IT PREVIEW ═════════════════════ */}
+      {pendingPhoto && (
+        <div
+          onClick={() => setPendingPhoto(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+            zIndex: 9999, display: "grid", placeItems: "center", padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: t.bgElevated, borderRadius: 22, padding: 16,
+              border: `1px solid ${t.border}`, maxWidth: 380, width: "100%",
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, textAlign: "center", marginBottom: 12 }}>
+              Keep this photo?
+            </div>
+            <div style={{ width: "100%", aspectRatio: "3 / 4", borderRadius: 14, overflow: "hidden", background: "#000" }}>
+              <img src={pendingPhoto} alt="Pending progress photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button
+                onClick={() => setPendingPhoto(null)}
+                style={{
+                  flex: 1, padding: "14px 16px", borderRadius: 14,
+                  background: t.bgInput, color: t.text,
+                  border: `1px solid ${t.border}`,
+                  fontSize: 13, fontWeight: 800, letterSpacing: 1, cursor: "pointer",
+                }}
+              >
+                RETAKE
+              </button>
+              <button
+                onClick={confirmPendingPhoto}
+                disabled={uploading}
+                style={{
+                  flex: 1, padding: "14px 16px", borderRadius: 14,
+                  background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                  color: t.accentText, border: "none",
+                  fontSize: 13, fontWeight: 800, letterSpacing: 1,
+                  cursor: uploading ? "wait" : "pointer",
+                  boxShadow: `0 8px 26px ${t.accentGlow}`,
+                }}
+              >
+                {uploading ? "SAVING…" : "KEEP IT"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═════════════════════ RECENT SCANS ═════════════════════ */}
-      <div style={{ padding: "20px 14px 0" }}>
+      <div ref={recentScansRef} style={{ padding: "20px 14px 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "0 4px" }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: t.text }}>Recent Scans</div>
           <button

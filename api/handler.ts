@@ -149,10 +149,25 @@ async function computeMuscleWeekDays(pool: any, userId: number, tz: string = "Am
         const key = normalizeExerciseKey(raw);
         if (!key) continue;
         const muscles = MUSCLE_MAP[key];
-        for (const muscle of Object.keys(muscles)) {
+        // Only stamp the weekday for muscles this exercise PRIMARILY trains.
+        // Threshold: ≥ 40% activation. This means Bench Press (chest 55, tris 22,
+        // shoulders 20) only stamps "chest"; Lat Pulldown (back 55, bis 22)
+        // only stamps "back" — biceps stays unstamped unless the user did
+        // a real biceps-direct lift (curls, hammer curl, etc.) that day.
+        // Plus: pick the SINGLE highest-activation muscle when multiple are
+        // ≥ 40, so we never double-stamp two groups from one exercise.
+        const PRIMARY_THRESHOLD = 40;
+        let topGroup: string | null = null;
+        let topPct = 0;
+        for (const [muscle, pctRaw] of Object.entries(muscles)) {
+          const pct = pctRaw as number;
+          if (pct < PRIMARY_THRESHOLD) continue;
           const group = MUSCLE_GROUP_AGG[muscle];
           if (!group) continue;
-          out[group] = day; // last writer wins (rows are ASC by date)
+          if (pct > topPct) { topPct = pct; topGroup = group; }
+        }
+        if (topGroup) {
+          out[topGroup] = day; // last writer wins (rows are ASC by date)
         }
       }
     }
@@ -263,6 +278,11 @@ async function ensureTables(pool: Pool) {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS form_rank TEXT NOT NULL DEFAULT 'Newbie';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS xp_to_next INTEGER NOT NULL DEFAULT 100;
+    -- Home hero photo is a SEPARATE image from profile_pic (the head-shot
+    -- shown in Profile tab). The user explicitly picks a progress photo from
+    -- the Home screen to set as their hero/full-body image. profile_pic
+    -- should NOT bleed into the home avatar anymore.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS home_photo TEXT;
     -- Flexin workouts log. One row per completed workout. The Home dashboard
     -- tiles "TRAINING DAYS" and "TOTAL WORKOUTS" are computed from this table
     -- (per-user, current calendar month).
@@ -364,6 +384,7 @@ function rowToUser(row: any) {
     formRank: row.form_rank ?? "Newbie",
     xp: row.xp ?? 0,
     xpToNext: row.xp_to_next ?? 100,
+    homePhoto: row.home_photo ?? null,
   };
 }
 
@@ -404,7 +425,7 @@ const COL_MAP: Record<string, string> = {
   totalSessions: "total_sessions", totalSecondsMediated: "total_seconds_meditated",
   streakDays: "streak_days", lastSessionDate: "last_session_date",
   isPremium: "is_premium", freeSessionsUsed: "free_sessions_used",
-  profilePic: "profile_pic", activeMusicTrack: "active_music_track", email: "email",
+  profilePic: "profile_pic", homePhoto: "home_photo", activeMusicTrack: "active_music_track", email: "email",
   activeGroupId: "active_group_id",
   sex: "sex", themeOverride: "theme_override", isTrainer: "is_trainer",
   age: "age", weightLbs: "weight_lbs", avatarBodyType: "avatar_body_type",
@@ -574,7 +595,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // tiles would always read "Add" even after the user typed them in.
           age: u.age,
           weightLbs: u.weightLbs,
-          avatarUrl: u.profilePic || null,
+          // Home hero photo: ONLY uses home_photo. profile_pic (head shot)
+          // no longer bleeds onto the home avatar — the user picks the home
+          // hero photo explicitly via the Home screen "Use progress photo"
+          // button. Returned separately as profilePicUrl for callers that
+          // need the head-shot specifically.
+          avatarUrl: (u as any).homePhoto || null,
+          profilePicUrl: u.profilePic || null,
         },
         muscleGroups: await computeMuscleGroups(pool, u.id),
         muscleGroupsMeta: {
@@ -584,8 +611,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         bodyDeltas: await (async () => {
           const wd = await computeMuscleWeekDays(pool, u.id);
+          // Overall % removed per user request — the muscle column now shows
+          // just per-group weekday markers (Mon/Tue/...) with no aggregate.
           return [
-            { key: "overall",   label: "Overall",   delta: 0, isOverall: true, lastLiftedDay: null },
             { key: "chest",     label: "Chest",     delta: 0, lastLiftedDay: wd.chest },
             { key: "back",      label: "Back",      delta: 0, lastLiftedDay: wd.back },
             { key: "legs",      label: "Legs",      delta: 0, lastLiftedDay: wd.legs },
@@ -750,7 +778,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         chest:     ["Bench Press", "Incline Bench Press", "Decline Bench Press", "Dumbbell Press", "Incline Dumbbell Press", "Chest Fly", "Cable Crossover", "Push-Up", "Dumbbell Pullover"],
         custom:    [],
       };
-      const names = byCategory[category] ?? byCategory.fullbody;
+      // User-created custom days (key shaped like `custom-<timestamp>` from
+      // the LogWorkout grid) MUST start completely empty — the user
+      // explicitly requested this. Any unknown category also returns an
+      // empty list rather than the previous `fullbody` fallback so a typo
+      // can't accidentally inherit 9 exercises.
+      const isCustomDay = category === "custom" || category.startsWith("custom-");
+      const names = isCustomDay ? [] : (byCategory[category] ?? []);
       const exercises = names.map((name, i) => ({
         id: i + 1, name, category, sexTarget: isFemale ? "female" : "male", isCustom: false,
       }));
@@ -889,9 +923,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let newLevel = 0;
       let newXp = 0;
       let newXpToNext = 0;
+      let newStreakDays = 0;
       try {
         const curRes = await pool.query(
-          "SELECT xp, xp_to_next, form_level FROM users WHERE id = $1",
+          "SELECT xp, xp_to_next, form_level, streak_days, last_session_date FROM users WHERE id = $1",
           [user.id]
         );
         let xp = Number(curRes.rows[0]?.xp || 0) + XP_PER_WORKOUT;
@@ -904,9 +939,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           xpToNext = Math.max(100, Math.round(xpToNext * 1.5));
           leveledUp = true;
         }
+
+        // ── Day streak: every workout counts as a "training day" ──
+        // Reuses the same streak_days / last_session_date columns the
+        // meditation flow already uses, so the streak shown on Home is the
+        // unified day streak (logging a workout OR a meditation extends it).
+        const today = new Date().toISOString().slice(0, 10);
+        const lastDate: string | null = curRes.rows[0]?.last_session_date || null;
+        const prevStreak = Number(curRes.rows[0]?.streak_days || 0);
+        let streak = prevStreak;
+        if (lastDate === today) {
+          // Already trained today — don't double-count, keep streak.
+          streak = prevStreak || 1;
+        } else {
+          const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+          streak = lastDate === yesterday ? prevStreak + 1 : 1;
+        }
+        newStreakDays = streak;
+
         await pool.query(
-          "UPDATE users SET xp = $1, xp_to_next = $2, form_level = $3 WHERE id = $4",
-          [xp, xpToNext, level, user.id]
+          "UPDATE users SET xp = $1, xp_to_next = $2, form_level = $3, streak_days = $4, last_session_date = $5 WHERE id = $6",
+          [xp, xpToNext, level, streak, today, user.id]
         );
         newXp = xp; newXpToNext = xpToNext; newLevel = level;
       } catch (e) {
@@ -924,6 +977,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         level: newLevel,
         xp: newXp,
         xpToNext: newXpToNext,
+        streakDays: newStreakDays,
       });
     }
 
@@ -1185,7 +1239,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    // ── DELETE /api/account ──────────────────────────────────────────────────
+    // ── /api/home-photo ───────────────────────────────────────────
+    // The Home hero avatar is a DIFFERENT image from the profile head shot.
+    // Picking a new home photo never touches profile_pic, and vice versa.
+    // Same JSON-body + base64 contract as /profile-pic.
+    if (path === "/home-photo") {
+      if (method === "GET") {
+        const row = await getOrCreate(pool, email);
+        const pic = (row as any).home_photo as string | null;
+        if (!pic) return res.status(404).json({ error: "No home photo" });
+        return res.json({ url: pic });
+      }
+      if (method === "POST") {
+        if (!email) return res.status(401).json({ error: "Not authenticated" });
+        const dataUrl = (req.body as any)?.image as string | undefined;
+        if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+          return res.status(400).json({ error: "Invalid image data" });
+        }
+        if (dataUrl.length > 1_500_000) {
+          return res.status(413).json({ error: "Image too large after compression" });
+        }
+        const row = await getOrCreate(pool, email);
+        const updated = await updateUser(pool, row.id, { homePhoto: dataUrl });
+        return res.json({ url: dataUrl, user: rowToUser(updated) });
+      }
+      if (method === "DELETE") {
+        if (!email) return res.status(401).json({ error: "Not authenticated" });
+        const row = await getOrCreate(pool, email);
+        const updated = await updateUser(pool, row.id, { homePhoto: null });
+        return res.json({ user: rowToUser(updated) });
+      }
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    // ── DELETE /api/account ───────────────────────────────────────────────────
     // Apple Guideline 5.1.1(v) — full account deletion. Removes the user row
     // and every meditation_session / journal_entry tied to it.
     if (path === "/account") {

@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, queryClient, API_BASE } from "@/lib/queryClient";
 import silhouetteMale from "@/assets/silhouette_male.png";
 import silhouetteFemale from "@/assets/silhouette_female.png";
 import flexinLogo from "@/assets/flexin_logo.png";
@@ -62,6 +64,25 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     staleTime: 60_000,
   });
 
+  // Lifted up so the HERO 'USE PROGRESS PHOTO' picker modal can list the
+  // user's existing progress scans without forcing the user to navigate to
+  // the Progress page first. EvolutionCard still calls useQuery on the same
+  // key — react-query dedupes automatically.
+  const { data: progressData } = useQuery<ProgressPayloadLite>({
+    queryKey: ["/api/progress"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    staleTime: 60_000,
+  });
+
+  // Home photo picker (new): opens an overlay sheet of the user's recent
+  // progress scans + native Take Photo / Choose Library actions. On select,
+  // we POST the data URL to /api/home-photo so it becomes the user's hero
+  // photo on the dashboard. Profile head shot stays untouched.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [pickerUploading, setPickerUploading] = useState(false);
+  const pickerFileInputRef = useRef<HTMLInputElement | null>(null);
+
   // First-login goal body type prompt. Dismissal is keyed by user email
   // in localStorage so the modal only ever shows once per user on this
   // device — never re-pops when the user taps Home from the bottom nav.
@@ -110,6 +131,82 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   }
 
   const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, evolutionTimeline } = data;
+
+  // ── Home photo picker helpers ────────────────────────────────────────
+  async function uploadHomePhoto(dataUrl: string) {
+    setPickerUploading(true);
+    setPickerError(null);
+    try {
+      const email = getUserEmail();
+      const resp = await fetch(`${API_BASE}/api/home-photo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(email ? { "x-user-email": email } : {}),
+        },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || `Upload failed (${resp.status})`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setPickerOpen(false);
+    } catch (e: any) {
+      setPickerError(e?.message || "Couldn't set photo");
+    } finally {
+      setPickerUploading(false);
+    }
+  }
+
+  function fileToDataUrlLocal(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleNativeTakePhoto() {
+    // Native iOS/Android path: show the OS action sheet so the user can pick
+    // Take Photo OR Choose from Library with proper permissions.
+    if (!Capacitor.isNativePlatform()) {
+      pickerFileInputRef.current?.click();
+      return;
+    }
+    setPickerError(null);
+    try {
+      const result = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Prompt,
+        saveToGallery: false,
+        promptLabelHeader: "Home Photo",
+        promptLabelPhoto: "Choose from Photos",
+        promptLabelPicture: "Take Photo",
+      });
+      const dataUrl = result?.dataUrl;
+      if (!dataUrl) return;
+      await uploadHomePhoto(dataUrl);
+    } catch (e: any) {
+      const msg = String(e?.message || e || "");
+      if (/cancel/i.test(msg)) return;
+      setPickerError(msg || "Couldn't open camera");
+    }
+  }
+
+  async function handleWebFileChosen(file: File) {
+    try {
+      const dataUrl = await fileToDataUrlLocal(file);
+      await uploadHomePhoto(dataUrl);
+    } catch (e: any) {
+      setPickerError(e?.message || "Couldn't read photo");
+    }
+  }
+
+  const pickerScans = (progressData?.recentScans || []).filter((s) => !!s.photoUrl);
   const xpPct = Math.min(100, Math.round((user.xp / user.xpToNext) * 100));
   // Resolve the chosen body-type avatar; fall back to legacy silhouette if unset.
   const silhouette = user.avatarBodyType
@@ -150,7 +247,32 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
         heroPhoto={heroPhoto}
         isFemale={isFemale}
         onOpenProfile={onOpenProfile}
-        onOpenProgress={onOpenProgress}
+        onOpenPhotoPicker={() => { setPickerError(null); setPickerOpen(true); }}
+      />
+
+      {/* ═════════════════════ HOME PHOTO PICKER MODAL ═════════════════════ */}
+      {pickerOpen && (
+        <HomePhotoPicker
+          t={t}
+          scans={pickerScans}
+          uploading={pickerUploading}
+          error={pickerError}
+          onClose={() => setPickerOpen(false)}
+          onSelectExisting={(url) => uploadHomePhoto(url)}
+          onTakePhoto={handleNativeTakePhoto}
+          onChooseLibrary={() => pickerFileInputRef.current?.click()}
+        />
+      )}
+      <input
+        ref={pickerFileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleWebFileChosen(f);
+          e.target.value = "";
+        }}
       />
 
       {/* ═════════════════════ SQUAD FEED + EVOLUTION (right under the avatar) ═════════════════════ */}
@@ -178,7 +300,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 // ════════════════════════════ HERO ════════════════════════════
 function HeroSection({
   t, userName, streakDays, formLevel, formRank, xp, xpToNext, xpPct,
-  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile, onOpenProgress,
+  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile, onOpenPhotoPicker,
 }: {
   t: any; userName: string; streakDays: number; formLevel: number; formRank: string;
   xp: number; xpToNext: number; xpPct: number;
@@ -186,7 +308,7 @@ function HeroSection({
   bodyDeltas: DashboardPayload["bodyDeltas"];
   weeklyScanDaysLeft: number; unreadAlerts: number; isPremium: boolean;
   silhouette: string; heroPhoto: string | null; isFemale: boolean;
-  onOpenProfile: () => void; onOpenProgress?: () => void;
+  onOpenProfile: () => void; onOpenPhotoPicker: () => void;
 }) {
   return (
     <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 8, minHeight: 520, overflow: "hidden" }}>
@@ -223,27 +345,26 @@ function HeroSection({
         )}
       </div>
 
-      {/* "Use my progress photo" button — sits on top of the silhouette.
-          Always visible (whether heroPhoto is set or not) so users can swap
-          out their main avatar straight from the dashboard. */}
-      {onOpenProgress && (
-        <button
-          onClick={onOpenProgress}
-          data-testid="home-use-progress-photo"
-          style={{
-            position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)",
-            background: `${t.bgElevated}EE`,
-            color: t.accent, border: `1px solid ${t.accent}80`,
-            borderRadius: 18, padding: "8px 14px",
-            fontSize: 11, fontWeight: 800, letterSpacing: 1,
-            cursor: "pointer", whiteSpace: "nowrap",
-            boxShadow: `0 0 12px ${t.accentGlow}`,
-            zIndex: 2,
-          }}
-        >
-          {heroPhoto ? "↑ UPDATE PROGRESS PHOTO" : "↑ USE A PROGRESS PHOTO"}
-        </button>
-      )}
+      {/* "USE PROGRESS PHOTO" button — opens an in-app picker showing the
+          user's existing progress scans + Take Photo / Choose Library so
+          they can pick a hero image without leaving Home. (Per user: this
+          must NOT navigate to the Progress page.) */}
+      <button
+        onClick={onOpenPhotoPicker}
+        data-testid="home-use-progress-photo"
+        style={{
+          position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)",
+          background: `${t.bgElevated}EE`,
+          color: t.accent, border: `1px solid ${t.accent}80`,
+          borderRadius: 18, padding: "8px 14px",
+          fontSize: 11, fontWeight: 800, letterSpacing: 1,
+          cursor: "pointer", whiteSpace: "nowrap",
+          boxShadow: `0 0 12px ${t.accentGlow}`,
+          zIndex: 2,
+        }}
+      >
+        ↑ USE PROGRESS PHOTO
+      </button>
 
       {/* Top row: flexin+ wordmark / bell + profile */}
       <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px" }}>
@@ -364,32 +485,151 @@ function HeroSection({
 
           {/* Body Deltas */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-end", paddingRight: 2 }}>
-            {bodyDeltas.map((d) => (
+            {bodyDeltas.filter((d) => !d.isOverall).map((d) => (
               <div key={d.key} style={{ textAlign: "right" }}>
                 <div style={{
                   fontSize: 10, color: t.textMuted, letterSpacing: 1, fontWeight: 600,
                 }}>{d.label}</div>
-                {d.isOverall ? (
-                  <>
-                    <div style={{
-                      fontSize: 18, fontWeight: 800, color: t.accent,
-                      lineHeight: 1.1, textShadow: `0 0 10px ${t.accentGlow}`,
-                    }}>+{d.delta}%</div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>vs last scan</div>
-                  </>
-                ) : (
-                  <div style={{
-                    fontSize: 13, fontWeight: 700, color: d.lastLiftedDay ? t.accent : t.textMuted,
-                    lineHeight: 1.1,
-                    textShadow: d.lastLiftedDay ? `0 0 8px ${t.accentGlow}` : "none",
-                  }}>
-                    {d.lastLiftedDay || "—"}
-                  </div>
-                )}
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: d.lastLiftedDay ? t.accent : t.textMuted,
+                  lineHeight: 1.1,
+                  textShadow: d.lastLiftedDay ? `0 0 8px ${t.accentGlow}` : "none",
+                }}>
+                  {d.lastLiftedDay || "—"}
+                </div>
               </div>
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════ HOME PHOTO PICKER ════════════════════════
+function HomePhotoPicker({
+  t, scans, uploading, error, onClose, onSelectExisting, onTakePhoto, onChooseLibrary,
+}: {
+  t: any;
+  scans: ProgressScanLite[];
+  uploading: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSelectExisting: (url: string) => void;
+  onTakePhoto: () => void;
+  onChooseLibrary: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 90,
+        background: "rgba(0,0,0,0.78)",
+        backdropFilter: "blur(6px)",
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 520,
+          background: t.bg, color: t.text,
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          padding: "18px 16px max(env(safe-area-inset-bottom), 20px)",
+          border: `1px solid ${t.border}`,
+          maxHeight: "82vh", overflowY: "auto",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 1 }}>USE PROGRESS PHOTO</div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: t.textMuted, padding: 6, fontSize: 18, fontWeight: 700,
+            }}
+          >✕</button>
+        </div>
+
+        {error && (
+          <div style={{
+            background: "#3a0f0f", color: "#ffb3b3", padding: "8px 12px",
+            borderRadius: 10, fontSize: 12, marginBottom: 10,
+          }}>{error}</div>
+        )}
+
+        {/* Action row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <button
+            onClick={onTakePhoto}
+            disabled={uploading}
+            style={{
+              padding: "14px 10px", borderRadius: 14,
+              background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+              color: t.accentText, fontSize: 12, fontWeight: 800, letterSpacing: 0.8,
+              border: "none", cursor: uploading ? "not-allowed" : "pointer",
+              opacity: uploading ? 0.5 : 1,
+            }}
+          >TAKE PHOTO</button>
+          <button
+            onClick={onChooseLibrary}
+            disabled={uploading}
+            style={{
+              padding: "14px 10px", borderRadius: 14,
+              background: t.bgElevated, color: t.text,
+              border: `1px solid ${t.border}`, fontSize: 12, fontWeight: 700, letterSpacing: 0.8,
+              cursor: uploading ? "not-allowed" : "pointer",
+              opacity: uploading ? 0.5 : 1,
+            }}
+          >CHOOSE FROM LIBRARY</button>
+        </div>
+
+        <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>
+          OR PICK FROM YOUR RECENT SCANS
+        </div>
+
+        {scans.length === 0 ? (
+          <div style={{
+            padding: "24px 12px", textAlign: "center",
+            color: t.textMuted, fontSize: 12, lineHeight: 1.5,
+            border: `1px dashed ${t.border}`, borderRadius: 12,
+          }}>
+            No progress photos yet.<br />Tap TAKE PHOTO above to add one.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {scans.map((s) => (
+              <button
+                key={s.id}
+                disabled={uploading}
+                onClick={() => s.photoUrl && onSelectExisting(s.photoUrl)}
+                style={{
+                  aspectRatio: "3 / 4", borderRadius: 12, overflow: "hidden",
+                  border: `1px solid ${t.border}`, padding: 0,
+                  cursor: uploading ? "not-allowed" : "pointer",
+                  background: "#0a0a0a",
+                  opacity: uploading ? 0.5 : 1,
+                }}
+                aria-label={`Use scan from ${s.dateLabel}`}
+              >
+                <img
+                  src={s.photoUrl!}
+                  alt={s.dateLabel}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {uploading && (
+          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: t.textMuted }}>
+            Saving…
+          </div>
+        )}
       </div>
     </div>
   );
