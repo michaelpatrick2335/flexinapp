@@ -5,8 +5,9 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn, API_BASE, getUserEmail } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
-import silhouetteMalePng from "@/assets/silhouette_male.png";
-import silhouetteFemalePng from "@/assets/silhouette_female.png";
+// (silhouette PNGs removed — the user explicitly asked for an outline-only
+//  pose guide instead of the blue-tinted silhouette guy. The new
+//  PoseOutlineGuide SVG component below draws just the outline.)
 import {
   SilhouetteSVG,
   DEFAULT_PARAMS_MALE,
@@ -142,6 +143,12 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
 
       // Also refresh the dashboard for muscle bars etc.
       await qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      // Refetch the persisted progress payload so the new scan replaces the
+      // optimistic client-cache entry with the real row (including the
+      // server-assigned id and createdAt). This is what fixes the bug where
+      // the photo "disappeared" — previously refetch reset state to empty
+      // because the server didn't persist. Now it stays.
+      await qc.invalidateQueries({ queryKey: ["/api/progress"] });
 
       // No render-status banners anymore — we just save the photo and move on.
     } catch (e: any) {
@@ -312,19 +319,11 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
                 />
               ) : (
                 <div style={{ textAlign: "center", padding: 16, fontSize: 13, lineHeight: 1.4, position: "relative", width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
-                  {/* Faint silhouette guide — shows users how to frame the photo */}
-                  <img
-                    src={isFemale ? silhouetteFemalePng : silhouetteMalePng}
-                    alt=""
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute", top: "50%", left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      height: "95%", width: "auto", objectFit: "contain",
-                      opacity: 0.10, pointerEvents: "none",
-                      mixBlendMode: isFemale ? "multiply" : "screen",
-                    }}
-                  />
+                  {/* Outline-only pose guide — just the silhouette shape (no
+                      light-blue filled "guy") so the user sees a clean frame
+                      to stand inside. Drawn as an inline SVG so it inherits
+                      the theme accent color and stays crisp at any size. */}
+                  <PoseOutlineGuide accent={t.accent} female={isFemale} />
                   <div style={{ position: "relative", zIndex: 1 }}>
                     <CameraIcon color={t.textMuted} size={40} />
                     <div style={{ marginTop: 10, color: t.textMuted, fontWeight: 700, fontSize: 14 }}>No photo yet</div>
@@ -838,6 +837,77 @@ function ArrowRightIcon({ color }: { color: string }) {
     </svg>
   );
 }
+// Pose outline guide — a stylized full-body figure rendered as a stroke-only
+// SVG so the user sees a clean outline to stand inside, with no filled
+// "blue guy" inside the frame. The proportions roughly follow standard
+// figure-drawing guidelines (~7.5 heads tall, slight male/female hip-shoulder
+// ratio difference). Stroke uses the active theme accent at low opacity so
+// it's a guide, not a focal point.
+function PoseOutlineGuide({ accent, female }: { accent: string; female: boolean }) {
+  // Female: narrower shoulders, wider hips. Male: wider shoulders, narrower hips.
+  const shoulderX = female ? 30 : 36;
+  const hipX = female ? 28 : 22;
+  return (
+    <svg
+      viewBox="0 0 100 220"
+      aria-hidden="true"
+      style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        height: "92%", width: "auto",
+        pointerEvents: "none", opacity: 0.30,
+      }}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <g
+        fill="none"
+        stroke={accent}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {/* Head */}
+        <ellipse cx="50" cy="18" rx="10" ry="12" />
+        {/* Neck */}
+        <path d={`M44,30 L${50 - shoulderX / 2 + 4},42 M56,30 L${50 + shoulderX / 2 - 4},42`} />
+        {/* Torso: shoulders → waist → hips (front silhouette) */}
+        <path
+          d={`
+            M${50 - shoulderX},42
+            Q${50 - shoulderX + 4},75 ${50 - 14},95
+            Q${50 - hipX},112 ${50 - hipX},120
+            L${50 - hipX + 6},122
+          `}
+        />
+        <path
+          d={`
+            M${50 + shoulderX},42
+            Q${50 + shoulderX - 4},75 ${50 + 14},95
+            Q${50 + hipX},112 ${50 + hipX},120
+            L${50 + hipX - 6},122
+          `}
+        />
+        {/* Arms — slightly out, palms forward (matches the framing prompt) */}
+        <path d={`M${50 - shoulderX},42 Q${50 - shoulderX - 6},75 ${50 - shoulderX - 8},108`} />
+        <path d={`M${50 + shoulderX},42 Q${50 + shoulderX + 6},75 ${50 + shoulderX + 8},108`} />
+        {/* Hands (small ovals at end of arms) */}
+        <ellipse cx={50 - shoulderX - 8} cy="114" rx="3.2" ry="5" />
+        <ellipse cx={50 + shoulderX + 8} cy="114" rx="3.2" ry="5" />
+        {/* Legs — inner + outer lines for each leg, slight stance */}
+        <path d={`M${50 - hipX + 6},122 Q${50 - 14},160 ${50 - 12},205`} />
+        <path d={`M${50 - 4},122 Q${50 - 6},160 ${50 - 6},205`} />
+        <path d={`M${50 + hipX - 6},122 Q${50 + 14},160 ${50 + 12},205`} />
+        <path d={`M${50 + 4},122 Q${50 + 6},160 ${50 + 6},205`} />
+        {/* Feet */}
+        <path d={`M${50 - 12},205 L${50 - 16},210 L${50 - 4},210 Z`} />
+        <path d={`M${50 + 4},210 L${50 + 16},210 L${50 + 12},205 Z`} />
+        {/* Centerline tick at waist — helps users center themselves */}
+        <path d="M50,95 L50,105" strokeDasharray="2 3" opacity="0.7" />
+      </g>
+    </svg>
+  );
+}
+
 function CameraIcon({ color, size = 20 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">

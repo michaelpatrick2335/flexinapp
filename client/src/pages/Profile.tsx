@@ -66,6 +66,12 @@ interface DashboardUser {
   xpToNext: number;
   streakDays: number;
   avatarUrl: string | null;
+  // Profile head shot lives in its own column (`users.profile_pic`) so it
+  // can stay distinct from the Home hero photo. Dashboard payload exposes
+  // it as profilePicUrl — the Profile page MUST read this field (not
+  // avatarUrl, which is the Home photo) otherwise newly uploaded head
+  // shots appear unsaved.
+  profilePicUrl?: string | null;
 }
 
 interface ProfileProps {
@@ -284,13 +290,13 @@ export function Profile({
           <div style={{
             position: "absolute", inset: 6,
             borderRadius: 78,
-            background: user.avatarUrl ? "transparent" : avatarBg,
+            background: (user.profilePicUrl || user.avatarUrl) ? "transparent" : avatarBg,
             display: "grid", placeItems: "center",
             overflow: "hidden",
           }}>
-            {user.avatarUrl && !avatarImgFailed ? (
+            {(user.profilePicUrl || user.avatarUrl) && !avatarImgFailed ? (
               <img
-                src={user.avatarUrl}
+                src={(user.profilePicUrl || user.avatarUrl) as string}
                 alt=""
                 onError={() => setAvatarImgFailed(true)}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}

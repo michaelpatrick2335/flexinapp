@@ -297,6 +297,22 @@ async function ensureTables(pool: Pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_workouts_user_time
       ON workouts (user_id, completed_at DESC);
+
+    -- Progress scans. Each row is one weekly full-body photo the user takes.
+    -- We store the original `photo` (base64 data URL) and optionally the AI
+    -- `render` (Gemini output). Persistence was added in response to the
+    -- bug where photos disappeared after the "Keep It" confirmation because
+    -- the previous implementation only updated the client query cache.
+    CREATE TABLE IF NOT EXISTS progress_scans (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      photo TEXT NOT NULL,
+      render TEXT,
+      status TEXT NOT NULL DEFAULT 'saved',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_progress_scans_user_time
+      ON progress_scans (user_id, created_at DESC);
   `);
 }
 
@@ -662,7 +678,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           streakDays: 0,
           energy: { percent: 100, message: "Invite friends to fire up the squad", trend: [50, 60, 70, 80, 90, 100], direction: "up" as const },
           members: [
-            { name: u.name || "You", initials: ((u.name || "You")[0] || "Y").toUpperCase(), bg: "#3B82F6", avatarUrl: null, lastActiveAgo: "now" },
+            {
+              name: u.name || "You",
+              initials: ((u.name || "You")[0] || "Y").toUpperCase(),
+              bg: "#3B82F6",
+              // Show the Profile head shot on the Squad live-activity feed.
+              // Squad avatars represent who's posting, so the head shot
+              // (profile_pic) is the correct image here — NOT the Home hero.
+              avatarUrl: u.profilePic || null,
+              lastActiveAgo: "now",
+            },
           ],
         },
         coach: { name: isFemale ? "Maxine" : "Max", sex: isFemale ? "female" as const : "male" as const, message: "Bring two friends in this week — squads of 3+ stay 4x more consistent.", cta: "Invite friends" },
@@ -702,31 +727,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const row = await getOrCreate(pool, email);
       const u = rowToUser(row);
       const isFemale = u.sex === "female";
+
+      // Pull the user's persisted scans (newest first). Keeping the limit
+      // conservative (24) is plenty for the Recent Scans strip + Evolution
+      // compare view, and keeps payload size sane.
+      const scansRes = await pool.query(
+        `SELECT id, photo, render, created_at
+         FROM progress_scans
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 24`,
+        [row.id]
+      );
+      const scanRows: any[] = scansRes.rows || [];
+
+      function dateLabelFor(d: Date): string {
+        const now = new Date();
+        const diffMs = now.getTime() - d.getTime();
+        const days = Math.floor(diffMs / 86_400_000);
+        if (days <= 0) return "Today";
+        if (days === 1) return "Yesterday";
+        if (days < 7) return `${days}d ago`;
+        const weeks = Math.floor(days / 7);
+        if (weeks < 5) return `${weeks}w ago`;
+        const months = Math.floor(days / 30);
+        return `${months}mo ago`;
+      }
+
+      const recentScans = scanRows.map((s, idx) => {
+        const d = new Date(s.created_at);
+        return {
+          id: s.id,
+          date: d.toISOString().slice(0, 10),
+          dateLabel: dateLabelFor(d),
+          isLatest: idx === 0,
+          intensity: 0.7,
+          photoUrl: s.photo as string,
+          renderUrl: (s.render as string | null) || null,
+          silhouetteParams: null,
+        };
+      });
+
+      const latest = recentScans[0] || null;
+      const hasScan = !!latest;
+
       const progressPayload = {
         user: { name: u.name || "Friend", sex: u.sex || "unspecified", isFemale },
         intro: {
           title: "Track your transformation",
           subtitle: "Photos give you real progress. Snap a weekly full-body photo and compare side-by-side over time.",
         },
-        scanHero: {
-          title: "Take your first scan",
-          body: "Stand in good lighting, arms slightly out, palms forward. Front view works best.",
-          ctaText: "Take Progress Photo",
-          buttonLabel: "Take Photo",
-          photoUrl: null,
-          renderUrl: null,
-          silhouetteParams: null,
-          buildLabel: null,
-          bodyFatPct: null,
-          muscleMassPct: null,
-        },
+        scanHero: hasScan
+          ? {
+              title: "Your latest scan",
+              body: "Photo saved. Take another next week to see your progress in the Evolution card below.",
+              ctaText: "Take Another Photo",
+              buttonLabel: "Take Another Photo",
+              photoUrl: latest!.photoUrl,
+              renderUrl: latest!.renderUrl,
+              silhouetteParams: null,
+              buildLabel: null,
+              bodyFatPct: null,
+              muscleMassPct: null,
+            }
+          : {
+              title: "Take your first scan",
+              body: "Stand in good lighting, arms slightly out, palms forward. Front view works best.",
+              ctaText: "Take Progress Photo",
+              buttonLabel: "Take Photo",
+              photoUrl: null,
+              renderUrl: null,
+              silhouetteParams: null,
+              buildLabel: null,
+              bodyFatPct: null,
+              muscleMassPct: null,
+            },
         steps: [
           { number: 1, title: "Snap weekly", blurb: "One photo a week, same lighting and angle." },
           { number: 2, title: "Save it", blurb: "Your photos stay private in your Flexin account." },
           { number: 3, title: "See change", blurb: "First vs latest side-by-side — real progress, not vibes." },
         ],
-        recentScans: [],
-        hasScan: false,
+        recentScans,
+        hasScan,
       };
       return res.json(progressPayload);
     }
@@ -883,9 +965,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      // Persist the scan so it shows up in Recent Scans on every subsequent
+      // page load. This was the root cause of the "photo disappeared after
+      // Keep It" bug — we used to only set the client query cache.
+      let scanId: number | string = Date.now();
+      try {
+        const ins = await pool.query(
+          `INSERT INTO progress_scans (user_id, photo, render, status)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id, created_at`,
+          [u.id, dataUrl, renderUrl, status]
+        );
+        if (ins.rows?.[0]?.id) scanId = ins.rows[0].id;
+      } catch (e: any) {
+        // Don't fail the request if persistence hiccups — the UI still has
+        // the image in hand. Log to the response so we can debug.
+        renderError = renderError || `Persist failed: ${e?.message || "unknown"}`;
+      }
+
       return res.json({
         ok: true,
-        scanId: Date.now(),
+        scanId,
         receivedBytes: dataUrl.length,
         photoUrl: dataUrl,
         renderUrl,
@@ -895,6 +995,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         receivedAt: new Date().toISOString(),
       });
     }
+
+    // ── DELETE /api/progress/scan?id=<id> ──────────────────────────────
+    // (Reserved for the future delete-a-scan feature — not wired up in the
+    // UI yet but the table now supports it.)
 
     // ── POST /api/workout ───────────────────────────────────────────────────
     // Records a completed workout. Inserts a row in `workouts` so the Home

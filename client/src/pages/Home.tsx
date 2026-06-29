@@ -1,7 +1,5 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Capacitor } from "@capacitor/core";
-import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn, queryClient, API_BASE } from "@/lib/queryClient";
 import silhouetteMale from "@/assets/silhouette_male.png";
@@ -81,7 +79,6 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [pickerUploading, setPickerUploading] = useState(false);
-  const pickerFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // First-login goal body type prompt. Dismissal is keyed by user email
   // in localStorage so the modal only ever shows once per user on this
@@ -159,53 +156,6 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     }
   }
 
-  function fileToDataUrlLocal(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error);
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleNativeTakePhoto() {
-    // Native iOS/Android path: show the OS action sheet so the user can pick
-    // Take Photo OR Choose from Library with proper permissions.
-    if (!Capacitor.isNativePlatform()) {
-      pickerFileInputRef.current?.click();
-      return;
-    }
-    setPickerError(null);
-    try {
-      const result = await Camera.getPhoto({
-        quality: 80,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Prompt,
-        saveToGallery: false,
-        promptLabelHeader: "Home Photo",
-        promptLabelPhoto: "Choose from Photos",
-        promptLabelPicture: "Take Photo",
-      });
-      const dataUrl = result?.dataUrl;
-      if (!dataUrl) return;
-      await uploadHomePhoto(dataUrl);
-    } catch (e: any) {
-      const msg = String(e?.message || e || "");
-      if (/cancel/i.test(msg)) return;
-      setPickerError(msg || "Couldn't open camera");
-    }
-  }
-
-  async function handleWebFileChosen(file: File) {
-    try {
-      const dataUrl = await fileToDataUrlLocal(file);
-      await uploadHomePhoto(dataUrl);
-    } catch (e: any) {
-      setPickerError(e?.message || "Couldn't read photo");
-    }
-  }
-
   const pickerScans = (progressData?.recentScans || []).filter((s) => !!s.photoUrl);
   const xpPct = Math.min(100, Math.round((user.xp / user.xpToNext) * 100));
   // Resolve the chosen body-type avatar; fall back to legacy silhouette if unset.
@@ -259,21 +209,8 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
           error={pickerError}
           onClose={() => setPickerOpen(false)}
           onSelectExisting={(url) => uploadHomePhoto(url)}
-          onTakePhoto={handleNativeTakePhoto}
-          onChooseLibrary={() => pickerFileInputRef.current?.click()}
         />
       )}
-      <input
-        ref={pickerFileInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleWebFileChosen(f);
-          e.target.value = "";
-        }}
-      />
 
       {/* ═════════════════════ SQUAD FEED + EVOLUTION (right under the avatar) ═════════════════════ */}
       <div style={{ padding: "6px 14px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -508,7 +445,7 @@ function HeroSection({
 
 // ════════════════════════ HOME PHOTO PICKER ════════════════════════
 function HomePhotoPicker({
-  t, scans, uploading, error, onClose, onSelectExisting, onTakePhoto, onChooseLibrary,
+  t, scans, uploading, error, onClose, onSelectExisting,
 }: {
   t: any;
   scans: ProgressScanLite[];
@@ -516,8 +453,6 @@ function HomePhotoPicker({
   error: string | null;
   onClose: () => void;
   onSelectExisting: (url: string) => void;
-  onTakePhoto: () => void;
-  onChooseLibrary: () => void;
 }) {
   return (
     <div
@@ -561,34 +496,11 @@ function HomePhotoPicker({
           }}>{error}</div>
         )}
 
-        {/* Action row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-          <button
-            onClick={onTakePhoto}
-            disabled={uploading}
-            style={{
-              padding: "14px 10px", borderRadius: 14,
-              background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
-              color: t.accentText, fontSize: 12, fontWeight: 800, letterSpacing: 0.8,
-              border: "none", cursor: uploading ? "not-allowed" : "pointer",
-              opacity: uploading ? 0.5 : 1,
-            }}
-          >TAKE PHOTO</button>
-          <button
-            onClick={onChooseLibrary}
-            disabled={uploading}
-            style={{
-              padding: "14px 10px", borderRadius: 14,
-              background: t.bgElevated, color: t.text,
-              border: `1px solid ${t.border}`, fontSize: 12, fontWeight: 700, letterSpacing: 0.8,
-              cursor: uploading ? "not-allowed" : "pointer",
-              opacity: uploading ? 0.5 : 1,
-            }}
-          >CHOOSE FROM LIBRARY</button>
-        </div>
-
+        {/* Per user: the Home photo picker is ONLY for choosing an existing
+            progress scan — no Take Photo / Choose Library buttons here.
+            Users who don't have a scan yet take one from the Progress page. */}
         <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>
-          OR PICK FROM YOUR RECENT SCANS
+          PICK FROM YOUR PROGRESS SCANS
         </div>
 
         {scans.length === 0 ? (
@@ -597,7 +509,7 @@ function HomePhotoPicker({
             color: t.textMuted, fontSize: 12, lineHeight: 1.5,
             border: `1px dashed ${t.border}`, borderRadius: 12,
           }}>
-            No progress photos yet.<br />Tap TAKE PHOTO above to add one.
+            No progress photos yet.<br />Take one from the Progress page first.
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -630,6 +542,21 @@ function HomePhotoPicker({
             Saving…
           </div>
         )}
+
+        {/* Cancel — explicit way out if the user doesn't want to set a photo. */}
+        <button
+          onClick={onClose}
+          disabled={uploading}
+          style={{
+            marginTop: 16, width: "100%",
+            padding: "14px 10px", borderRadius: 14,
+            background: t.bgElevated, color: t.text,
+            border: `1px solid ${t.border}`,
+            fontSize: 12, fontWeight: 800, letterSpacing: 1,
+            cursor: uploading ? "not-allowed" : "pointer",
+            opacity: uploading ? 0.5 : 1,
+          }}
+        >CANCEL</button>
       </div>
     </div>
   );
