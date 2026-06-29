@@ -18,7 +18,12 @@
         /* Disable double-tap zoom while still allowing taps to register
            quickly (no 300ms delay). */
         touch-action: manipulation;
+        /* Solid dark background applied immediately so the iOS LaunchScreen
+           hand-off to the WebView never flashes white before React mounts. */
+        background-color: #0d0f1a;
+        color: #ffffff;
       }
+      #root { background-color: #0d0f1a; min-height: 100dvh; }
       body {
         /* Disable the long-press text-selection callout on iOS so the app
            feels native, and prevent text selection on chrome elements. */

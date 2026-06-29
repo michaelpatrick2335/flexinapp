@@ -5,6 +5,8 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn, API_BASE, getUserEmail } from "@/lib/queryClient";
 import flexinLogo from "@/assets/flexin_logo.png";
+import silhouetteMalePng from "@/assets/silhouette_male.png";
+import silhouetteFemalePng from "@/assets/silhouette_female.png";
 import {
   SilhouetteSVG,
   DEFAULT_PARAMS_MALE,
@@ -275,10 +277,25 @@ export function Progress({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProf
                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                 />
               ) : (
-                <div style={{ textAlign: "center", padding: 16, fontSize: 13, lineHeight: 1.4 }}>
-                  <CameraIcon color={t.textMuted} size={40} />
-                  <div style={{ marginTop: 10, color: t.textMuted, fontWeight: 700, fontSize: 14 }}>No photo yet</div>
-                  <div style={{ color: t.textDim, marginTop: 4 }}>Take your first full-body photo to begin tracking</div>
+                <div style={{ textAlign: "center", padding: 16, fontSize: 13, lineHeight: 1.4, position: "relative", width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
+                  {/* Faint silhouette guide — shows users how to frame the photo */}
+                  <img
+                    src={isFemale ? silhouetteFemalePng : silhouetteMalePng}
+                    alt=""
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute", top: "50%", left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      height: "95%", width: "auto", objectFit: "contain",
+                      opacity: 0.10, pointerEvents: "none",
+                      mixBlendMode: isFemale ? "multiply" : "screen",
+                    }}
+                  />
+                  <div style={{ position: "relative", zIndex: 1 }}>
+                    <CameraIcon color={t.textMuted} size={40} />
+                    <div style={{ marginTop: 10, color: t.textMuted, fontWeight: 700, fontSize: 14 }}>No photo yet</div>
+                    <div style={{ color: t.textDim, marginTop: 4 }}>Stand in the outline. Take a full-body photo to begin tracking.</div>
+                  </div>
                 </div>
               )}
             </div>

@@ -137,8 +137,8 @@ export function Welcome({ onGetStarted, onLogIn, onTrainerSignup }: WelcomeProps
           theme={t}
         />
         <FeatureCard
-          title="Scan Body Metrics"
-          body="Advanced AI scans. Track what matters."
+          title="Progress Photos"
+          body="Snap weekly photos. See real side-by-side change."
           icon={<DnaIcon color={t.accent} />}
           theme={t}
         />

@@ -22,7 +22,7 @@ interface DashboardPayload {
     avatarUrl?: string | null;
   };
   muscleGroups: { key: string; label: string; progress: number; streakDays: number }[];
-  bodyDeltas: { key: string; label: string; delta: number; isOverall?: boolean }[];
+  bodyDeltas: { key: string; label: string; delta: number; isOverall?: boolean; lastLiftedDay?: string | null }[];
   energy: { percent: number; message: string };
   weeklyScanDaysLeft: number;
   monthStats: {
@@ -150,6 +150,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
         heroPhoto={heroPhoto}
         isFemale={isFemale}
         onOpenProfile={onOpenProfile}
+        onOpenProgress={onOpenProgress}
       />
 
       {/* ═════════════════════ SQUAD FEED + EVOLUTION (right under the avatar) ═════════════════════ */}
@@ -177,14 +178,15 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 // ════════════════════════════ HERO ════════════════════════════
 function HeroSection({
   t, userName, streakDays, formLevel, formRank, xp, xpToNext, xpPct,
-  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile,
+  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile, onOpenProgress,
 }: {
   t: any; userName: string; streakDays: number; formLevel: number; formRank: string;
   xp: number; xpToNext: number; xpPct: number;
   energy: { percent: number; message: string };
   bodyDeltas: DashboardPayload["bodyDeltas"];
   weeklyScanDaysLeft: number; unreadAlerts: number; isPremium: boolean;
-  silhouette: string; heroPhoto: string | null; isFemale: boolean; onOpenProfile: () => void;
+  silhouette: string; heroPhoto: string | null; isFemale: boolean;
+  onOpenProfile: () => void; onOpenProgress?: () => void;
 }) {
   return (
     <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 8, minHeight: 520, overflow: "hidden" }}>
@@ -220,6 +222,28 @@ function HeroSection({
           />
         )}
       </div>
+
+      {/* "Use my progress photo" button — sits on top of the silhouette.
+          Always visible (whether heroPhoto is set or not) so users can swap
+          out their main avatar straight from the dashboard. */}
+      {onOpenProgress && (
+        <button
+          onClick={onOpenProgress}
+          data-testid="home-use-progress-photo"
+          style={{
+            position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)",
+            background: `${t.bgElevated}EE`,
+            color: t.accent, border: `1px solid ${t.accent}80`,
+            borderRadius: 18, padding: "8px 14px",
+            fontSize: 11, fontWeight: 800, letterSpacing: 1,
+            cursor: "pointer", whiteSpace: "nowrap",
+            boxShadow: `0 0 12px ${t.accentGlow}`,
+            zIndex: 2,
+          }}
+        >
+          {heroPhoto ? "↑ UPDATE PROGRESS PHOTO" : "↑ USE A PROGRESS PHOTO"}
+        </button>
+      )}
 
       {/* Top row: flexin+ wordmark / bell + profile */}
       <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px" }}>
@@ -345,14 +369,22 @@ function HeroSection({
                 <div style={{
                   fontSize: 10, color: t.textMuted, letterSpacing: 1, fontWeight: 600,
                 }}>{d.label}</div>
-                <div style={{
-                  fontSize: d.isOverall ? 18 : 16, fontWeight: 800, color: t.accent,
-                  lineHeight: 1.1, textShadow: `0 0 10px ${t.accentGlow}`,
-                }}>
-                  +{d.delta}%
-                </div>
-                {d.isOverall && (
-                  <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>vs last scan</div>
+                {d.isOverall ? (
+                  <>
+                    <div style={{
+                      fontSize: 18, fontWeight: 800, color: t.accent,
+                      lineHeight: 1.1, textShadow: `0 0 10px ${t.accentGlow}`,
+                    }}>+{d.delta}%</div>
+                    <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>vs last scan</div>
+                  </>
+                ) : (
+                  <div style={{
+                    fontSize: 13, fontWeight: 700, color: d.lastLiftedDay ? t.accent : t.textMuted,
+                    lineHeight: 1.1,
+                    textShadow: d.lastLiftedDay ? `0 0 8px ${t.accentGlow}` : "none",
+                  }}>
+                    {d.lastLiftedDay || "—"}
+                  </div>
                 )}
               </div>
             ))}

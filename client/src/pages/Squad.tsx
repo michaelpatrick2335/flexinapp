@@ -135,6 +135,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         userName: userLabel,
         message: `started a new squad — ${name}`,
         kind: "squad_created",
+        squad: name,
       });
       // Refresh the dashboard so the new feed entry shows on Home next time.
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -160,6 +161,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         userName: "You",
         message: `sent ${emoji} to the squad`,
         kind: "live",
+        squad: activeSquadName || null,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     } catch {}
@@ -186,6 +188,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         userName: "You",
         message: `flexed on the squad — ${activityText}`,
         kind: "pr",
+        squad: activeSquadName || null,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     } catch {}
@@ -221,8 +224,10 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   // server's activity list, mapping each LocalFeedEvent shape to a
   // SquadActivityItem so the row renderer is identical. Local events show
   // first so a fresh workout shows up here instantly, exactly like on Home.
+  // Squad isolation: only pull THIS squad's feed bucket. When the user has
+  // multiple squads, switching the header switcher swaps which bucket we read.
   const localFeed: LocalFeedEvent[] = (() => {
-    try { return getFeed(getUserEmail() || "anon"); } catch { return []; }
+    try { return getFeed(getUserEmail() || "anon", activeSquadName || null); } catch { return []; }
   })();
   const mappedLocal: SquadActivityItem[] = localFeed.map((e) => {
     const mins = minutesAgo(e.createdAt);
@@ -240,7 +245,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
     const reactionIcon: SquadActivityItem["reactionIcon"] =
       e.kind === "pr" ? "clap" : e.kind === "progress" ? "eyes" : "fire";
     return {
-      id: typeof e.id === "number" ? e.id : Math.abs(e.id.toString().split("").reduce((a, c) => a + c.charCodeAt(0), 0)),
+      id: e.id,
       member: e.userName || "You",
       kind: k,
       text: e.message,
@@ -336,11 +341,11 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
               border: `2px solid ${t.accent}`, boxShadow: `0 0 18px ${t.accentGlow}`,
               background: t.bgElevated,
             }}>
-              <img src={maxAvatar} alt="MAX AI Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={maxAvatar} alt={isFemale ? "Sandy AI Coach" : "Max AI Coach"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ color: t.accent, fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}>MAX AI COACH</span>
+                <span style={{ color: t.accent, fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}>{isFemale ? "SANDY AI COACH" : "MAX AI COACH"}</span>
                 <span style={{
                   fontSize: 9, fontWeight: 700, letterSpacing: 0.8,
                   color: t.accent, border: `1px solid ${t.accent}`,
@@ -429,7 +434,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
         <Card t={t}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <SwordsIcon color={t.accent} size={18} />
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: t.text }}>MAX AI INSIGHT</span>
+            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: t.text }}>{isFemale ? "SANDY AI INSIGHT" : "MAX AI INSIGHT"}</span>
             <span style={{
               fontSize: 9, fontWeight: 800, letterSpacing: 1,
               color: t.accent, border: `1px solid ${t.accent}`,
@@ -602,10 +607,12 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
               </div>
             </div>
 
-            <TrophyIcon color={t.accent} glow={t.accentGlow} size={64} />
           </div>
         </Card>
       </section>
+
+      {/* ═══════════════════ WEEKLY PR CHALLENGE ═══════════════════ */}
+      <WeeklyPRChallengeCard t={t} squadName={activeSquadName || squad.name} />
 
       {/* ═════════════════════ MODALS ═════════════════════ */}
       {modal === "send" && (
@@ -1480,5 +1487,155 @@ function DumbbellGlyph({ color, size = 28 }: { color: string; size?: number }) {
       {/* Bar */}
       <rect x="11" y="14" width="10" height="4"  rx="0.8" fill={color} />
     </svg>
+  );
+}
+
+// ════════════════════════════ WEEKLY PR CHALLENGE ════════════════════════════
+// Squad picks a lift each week and everyone votes. The top-voted lift becomes
+// THIS WEEK'S CHALLENGE for the squad to attempt. Persists per-squad in
+// localStorage. We expose simple lift suggestions and an "Add your own"
+// field. Votes auto-reset each Sunday so the squad re-picks weekly.
+function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) {
+  const email = (() => { try { return getUserEmail() || "anon"; } catch { return "anon"; } })().toLowerCase();
+  const weekKey = (() => {
+    // Sun-anchored week key: first Sunday of current week in local tz
+    const now = new Date();
+    const dow = now.getDay(); // 0=Sun
+    const sun = new Date(now.getTime() - dow * 86400000);
+    sun.setHours(0, 0, 0, 0);
+    return `${sun.getFullYear()}-${sun.getMonth() + 1}-${sun.getDate()}`;
+  })();
+  const storeKey = `flexin.prVote:${email}:${(squadName || "default").toLowerCase()}:${weekKey}`;
+  type VoteState = { options: { lift: string; votes: string[] }[]; myVote?: string };
+  const DEFAULT_LIFTS = ["Bench Press", "Back Squat", "Deadlift", "Overhead Press"];
+
+  const [state, setState] = useState<VoteState>(() => {
+    try {
+      const raw = localStorage.getItem(storeKey);
+      if (raw) return JSON.parse(raw) as VoteState;
+    } catch {}
+    return { options: DEFAULT_LIFTS.map((l) => ({ lift: l, votes: [] })) };
+  });
+  const [newLift, setNewLift] = useState("");
+
+  function persist(next: VoteState) {
+    setState(next);
+    try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch {}
+  }
+
+  function castVote(lift: string) {
+    const opts = state.options.map((o) => ({
+      ...o,
+      votes: o.votes.filter((v) => v !== email),
+    }));
+    const idx = opts.findIndex((o) => o.lift.toLowerCase() === lift.toLowerCase());
+    if (idx >= 0) opts[idx].votes.push(email);
+    persist({ options: opts, myVote: lift });
+  }
+
+  function addLift() {
+    const name = newLift.trim();
+    if (!name) return;
+    if (state.options.some((o) => o.lift.toLowerCase() === name.toLowerCase())) {
+      castVote(name);
+    } else {
+      const opts = [...state.options, { lift: name, votes: [] }];
+      persist({ options: opts, myVote: state.myVote });
+    }
+    setNewLift("");
+  }
+
+  const sorted = [...state.options].sort((a, b) => b.votes.length - a.votes.length);
+  const leader = sorted[0];
+  const totalVotes = state.options.reduce((s, o) => s + o.votes.length, 0);
+
+  return (
+    <section style={{ padding: "12px 18px 0" }}>
+      <Card t={t}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <BoltIcon color={t.accent} size={18} />
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: t.text }}>
+            WEEKLY PR CHALLENGE
+          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 800, letterSpacing: 1, color: t.accent,
+            border: `1px solid ${t.accent}`, borderRadius: 4, padding: "2px 6px",
+          }}>VOTE</span>
+        </div>
+        <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 10, lineHeight: 1.4 }}>
+          Group picks the lift to hit this week. Resets Sunday.
+        </div>
+
+        {leader && leader.votes.length > 0 && (
+          <div style={{
+            background: t.bgInput, border: `1px solid ${t.accent}40`,
+            borderRadius: 12, padding: "10px 12px", marginBottom: 10,
+          }}>
+            <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: 1 }}>LEADING</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: t.accent, marginTop: 2 }}>
+              {leader.lift}
+            </div>
+            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
+              {leader.votes.length} vote{leader.votes.length === 1 ? "" : "s"} • {totalVotes} total
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {state.options.map((o) => {
+            const isMine = state.myVote === o.lift;
+            const pct = totalVotes > 0 ? Math.round((o.votes.length / totalVotes) * 100) : 0;
+            return (
+              <button
+                key={o.lift}
+                onClick={() => castVote(o.lift)}
+                style={{
+                  position: "relative", textAlign: "left",
+                  background: isMine ? `${t.accent}25` : t.bgInput,
+                  border: `1px solid ${isMine ? t.accent : t.border}`,
+                  borderRadius: 12, padding: "9px 12px",
+                  color: t.text, cursor: "pointer", overflow: "hidden",
+                }}
+              >
+                <div style={{
+                  position: "absolute", inset: 0, width: `${pct}%`,
+                  background: `${t.accent}15`, pointerEvents: "none",
+                }} />
+                <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{o.lift}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isMine ? t.accent : t.textMuted }}>
+                    {o.votes.length}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
+          <input
+            value={newLift}
+            onChange={(e) => setNewLift(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLift(); } }}
+            placeholder="Add a lift…"
+            style={{
+              flex: 1, background: t.bgInput, color: t.text,
+              border: `1px solid ${t.border}`, borderRadius: 10,
+              padding: "8px 10px", fontSize: 12, outline: "none",
+            }}
+          />
+          <button
+            onClick={addLift}
+            style={{
+              background: t.accent, color: t.accentText, border: "none",
+              borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 800,
+              letterSpacing: 0.5, cursor: "pointer",
+            }}
+          >
+            ADD
+          </button>
+        </div>
+      </Card>
+    </section>
   );
 }

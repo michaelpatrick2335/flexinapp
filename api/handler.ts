@@ -112,6 +112,56 @@ async function computeMuscleGroups(pool: any, userId: number) {
   }
 }
 
+// Returns the day-of-week ("Mon", "Tue", ...) each muscle group was last
+// trained in the CURRENT calendar week (Sunday is the start of the new week).
+// Returns null when the muscle has not been hit yet this week.
+async function computeMuscleWeekDays(pool: any, userId: number, tz: string = "America/Chicago") {
+  const GROUPS = ["chest", "back", "legs", "shoulders", "arms", "core"];
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const out: Record<string, string | null> = { chest: null, back: null, legs: null, shoulders: null, arms: null, core: null };
+  try {
+    // Week starts Sunday. Find the most recent Sunday 00:00 in the user's tz.
+    // Use a SQL filter to get only workouts since that Sunday.
+    const r = await pool.query(
+      `SELECT exercise_names, completed_at
+       FROM workouts
+       WHERE user_id = $1
+         AND completed_at >= date_trunc('week', NOW() AT TIME ZONE $2) - INTERVAL '1 day'
+       ORDER BY completed_at ASC`,
+      [userId, tz]
+    );
+    // date_trunc('week') in PG is Monday; subtract 1 day to get Sunday.
+    for (const row of r.rows || []) {
+      let names: string[] = [];
+      try {
+        names = typeof row.exercise_names === "string" ? JSON.parse(row.exercise_names) : (row.exercise_names || []);
+      } catch { names = []; }
+      const ts: Date | null = row.completed_at ? new Date(row.completed_at) : null;
+      if (!ts) continue;
+      // Defensive: confirm this row is in the current Sun..Sat window in tz.
+      const now = new Date();
+      const dow = now.getDay(); // 0=Sun .. 6=Sat (local server, but we already filtered in SQL)
+      const startOfWeek = new Date(now.getTime() - dow * 86400000);
+      startOfWeek.setHours(0, 0, 0, 0);
+      if (ts < startOfWeek) continue;
+      const day = DAYS[ts.getDay()];
+      for (const raw of names) {
+        const key = normalizeExerciseKey(raw);
+        if (!key) continue;
+        const muscles = MUSCLE_MAP[key];
+        for (const muscle of Object.keys(muscles)) {
+          const group = MUSCLE_GROUP_AGG[muscle];
+          if (!group) continue;
+          out[group] = day; // last writer wins (rows are ASC by date)
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[computeMuscleWeekDays] failed", e);
+  }
+  return GROUPS.reduce<Record<string, string | null>>((acc, g) => { acc[g] = out[g]; return acc; }, {});
+}
+
 // Stripe is loaded dynamically per-request to avoid bundling issues
 // Using require() at module level - Vercel bundles this fine at runtime
 
@@ -532,15 +582,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           windowDays: 7,
           version: "1.0.0",
         },
-        bodyDeltas: [
-          { key: "overall",   label: "Overall",   delta: 0, isOverall: true },
-          { key: "chest",     label: "Chest",     delta: 0 },
-          { key: "back",      label: "Back",      delta: 0 },
-          { key: "legs",      label: "Legs",      delta: 0 },
-          { key: "shoulders", label: "Shoulders", delta: 0 },
-          { key: "arms",      label: "Arms",      delta: 0 },
-          { key: "core",      label: "Core",      delta: 0 },
-        ],
+        bodyDeltas: await (async () => {
+          const wd = await computeMuscleWeekDays(pool, u.id);
+          return [
+            { key: "overall",   label: "Overall",   delta: 0, isOverall: true, lastLiftedDay: null },
+            { key: "chest",     label: "Chest",     delta: 0, lastLiftedDay: wd.chest },
+            { key: "back",      label: "Back",      delta: 0, lastLiftedDay: wd.back },
+            { key: "legs",      label: "Legs",      delta: 0, lastLiftedDay: wd.legs },
+            { key: "shoulders", label: "Shoulders", delta: 0, lastLiftedDay: wd.shoulders },
+            { key: "arms",      label: "Arms",      delta: 0, lastLiftedDay: wd.arms },
+            { key: "core",      label: "Core",      delta: 0, lastLiftedDay: wd.core },
+          ];
+        })(),
         energy: { percent: 100, message: "Fresh start — let's go" },
         weeklyScanDaysLeft: 7,
         monthStats: await computeMonthStats(pool, u.id),
@@ -829,12 +882,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
          RETURNING id, category, exercise_names, duration_seconds, completed_at`,
         [user.id, category, JSON.stringify(names), durationSeconds, notes]
       );
+
+      // ── XP award: every workout earns XP, with level-up cascade ──
+      const XP_PER_WORKOUT = 25;
+      let leveledUp = false;
+      let newLevel = 0;
+      let newXp = 0;
+      let newXpToNext = 0;
+      try {
+        const curRes = await pool.query(
+          "SELECT xp, xp_to_next, form_level FROM users WHERE id = $1",
+          [user.id]
+        );
+        let xp = Number(curRes.rows[0]?.xp || 0) + XP_PER_WORKOUT;
+        let xpToNext = Number(curRes.rows[0]?.xp_to_next || 100);
+        let level = Number(curRes.rows[0]?.form_level || 1);
+        // Cascade through any level-ups (safety: cap at 5 in one workout)
+        for (let i = 0; i < 5 && xp >= xpToNext; i++) {
+          xp -= xpToNext;
+          level += 1;
+          xpToNext = Math.max(100, Math.round(xpToNext * 1.5));
+          leveledUp = true;
+        }
+        await pool.query(
+          "UPDATE users SET xp = $1, xp_to_next = $2, form_level = $3 WHERE id = $4",
+          [xp, xpToNext, level, user.id]
+        );
+        newXp = xp; newXpToNext = xpToNext; newLevel = level;
+      } catch (e) {
+        console.error("[workout XP award] failed", e);
+      }
+
       return res.json({
         ok: true,
         workout: insertRes.rows[0],
         category,
         exerciseCount: names.length,
         loggedAt: insertRes.rows[0].completed_at,
+        xpAwarded: XP_PER_WORKOUT,
+        leveledUp,
+        level: newLevel,
+        xp: newXp,
+        xpToNext: newXpToNext,
       });
     }
 

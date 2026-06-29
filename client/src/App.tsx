@@ -7,6 +7,7 @@ import { Clipboard } from "@capacitor/clipboard";
 import { queryClient, getQueryFn, getUserEmail, setUserEmail, clearUserEmail, hasPickedExperience } from "@/lib/queryClient";
 import { clearCustomExercisesForCurrentUser } from "@/lib/custom-breath-exercises";
 import { Welcome } from "@/pages/Welcome";
+import { useThemeControls, resetThemeToBlue } from "@/lib/ThemeProvider";
 import { CreateAccount } from "@/pages/CreateAccount";
 import { NameEmail } from "@/pages/NameEmail";
 import { SexSelect } from "@/pages/SexSelect";
@@ -71,9 +72,13 @@ function AppContent() {
     // Drop any persisted login (email + react-query cache + pending join code
     // staging) before the first render so the splash gives way to Welcome,
     // not to a half-cached "Loading…" against a stale account.
+    // Also wipe any saved theme so the pre-login screens always render in
+    // the neutral blue palette (no female user's pink leaking into a new
+    // user's login flow).
     if (Capacitor.isNativePlatform()) {
       try { clearUserEmail(); } catch {}
       try { queryClient.clear(); } catch {}
+      try { resetThemeToBlue(); } catch {}
     }
 
     // Clipboard handoff: on iOS first-launch, the user may have tapped a
@@ -104,6 +109,17 @@ function AppContent() {
     staleTime: 30_000,
     retry: false,
   });
+
+  // Apply the user's saved sex/theme override AFTER login succeeds, so the
+  // pre-login screens always render in the neutral blue palette and a logged-in
+  // user's pink/blue theme only kicks in once we know who they are.
+  const { setUserPreference } = useThemeControls();
+  useEffect(() => {
+    if (!user) return;
+    const sex = (user.sex === "female" || user.sex === "male") ? user.sex : "unspecified";
+    const override = (user as any).themeOverride ?? null;
+    setUserPreference({ sex: sex as any, override });
+  }, [user?.sex, (user as any)?.themeOverride, setUserPreference]);
 
   // Post-paywall auto-join. Runs whenever the user becomes premium.
   // There are TWO possible sources for a pending tribe code:
@@ -418,6 +434,7 @@ function AuthenticatedShell() {
           clearUserEmail();
           clearCustomExercisesForCurrentUser();
           queryClient.clear();
+          resetThemeToBlue();
           window.location.hash = "";
           window.location.reload();
         }}
