@@ -47,12 +47,18 @@ workflows:
       - name: Add iOS platform (creates Xcode project if missing)
         script: |
           set -e
-          # The committed ios/ dir only contains icon assets (no Xcode project),
-          # so we always run `cap add ios` when App.xcodeproj is missing.
-          # First, stash any committed assets (icons) so they survive the regen.
+          # The committed ios/ dir only contains icon assets + our dark
+          # LaunchScreen.storyboard (no Xcode project), so we always run
+          # `cap add ios` when App.xcodeproj is missing.
+          # First, stash committed assets AND our custom LaunchScreen so they
+          # survive the regen.
           if [ -d "ios/App/App/Assets.xcassets" ] && [ ! -d "ios/App/App.xcodeproj" ]; then
-            echo "Existing ios/ has assets but no Xcode project — stashing assets and regenerating."
+            echo "Existing ios/ has assets but no Xcode project — stashing assets and launch screen, regenerating."
             cp -R ios/App/App/Assets.xcassets /tmp/Assets.xcassets
+            if [ -f "ios/App/App/Base.lproj/LaunchScreen.storyboard" ]; then
+              mkdir -p /tmp/Base.lproj
+              cp ios/App/App/Base.lproj/LaunchScreen.storyboard /tmp/Base.lproj/LaunchScreen.storyboard
+            fi
             rm -rf ios
           fi
           if [ ! -f "ios/App/App.xcodeproj/project.pbxproj" ]; then
@@ -65,6 +71,15 @@ workflows:
             cp -R /tmp/Assets.xcassets/. ios/App/App/Assets.xcassets/
             rm -rf /tmp/Assets.xcassets
           fi
+          # Overwrite the generated WHITE LaunchScreen.storyboard with our
+          # committed dark (#0d0f1a) version. This is what causes the
+          # "opening white screen" the user keeps seeing on TestFlight.
+          if [ -f "/tmp/Base.lproj/LaunchScreen.storyboard" ]; then
+            mkdir -p ios/App/App/Base.lproj
+            cp /tmp/Base.lproj/LaunchScreen.storyboard ios/App/App/Base.lproj/LaunchScreen.storyboard
+            rm -rf /tmp/Base.lproj
+            echo "Dark LaunchScreen.storyboard restored."
+          fi
       - name: Sync Capacitor iOS
         script: |
           set -e
@@ -72,6 +87,19 @@ workflows:
           # when there is no Podfile present. Capacitor 8 generates SPM-based
           # projects by default.
           npx cap sync ios
+          # cap sync may regenerate / overwrite LaunchScreen.storyboard with
+          # Capacitor's default WHITE template. Force-overwrite again with our
+          # committed dark version so the splash is dark from the very first
+          # frame the user sees.
+          if [ -f "$CM_BUILD_DIR/ios/App/App/Base.lproj/LaunchScreen.storyboard" ]; then
+            : # already in place from stash-restore
+          fi
+          # Source of truth in the repo (post-checkout, since cap sync may overwrite
+          # the in-place file). We copy from the git working tree, not /tmp.
+          if git show HEAD:ios/App/App/Base.lproj/LaunchScreen.storyboard > /tmp/LaunchScreen.storyboard 2>/dev/null; then
+            cp /tmp/LaunchScreen.storyboard ios/App/App/Base.lproj/LaunchScreen.storyboard
+            echo "Re-applied dark LaunchScreen.storyboard after cap sync."
+          fi
           # Capacitor 8 uses Swift Package Manager (SPM) instead of CocoaPods,
           # so there is no Podfile and no App.xcworkspace. The build uses
           # App.xcodeproj directly. Verify it exists:

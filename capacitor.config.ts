@@ -20,10 +20,15 @@ const config: CapacitorConfig = {
     backgroundColor: '#0a0a0a',
   },
   plugins: {
+    // Capacitor's SplashScreen plugin was painting a WHITE intermediate
+    // screen (its default "Splash" image asset is white) between iOS
+    // LaunchScreen and our React mount. We disable it entirely — our custom
+    // dark LaunchScreen.storyboard now covers the full window until React
+    // is interactive, and our html/body/#root are already #0d0f1a.
     SplashScreen: {
-      launchShowDuration: 1500,
+      launchShowDuration: 0,
       launchAutoHide: true,
-      backgroundColor: '#0a0a0a',
+      backgroundColor: '#0d0f1a',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
       splashFullScreen: true,
