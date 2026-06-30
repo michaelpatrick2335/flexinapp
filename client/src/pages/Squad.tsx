@@ -201,10 +201,17 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
     } catch {}
   }
 
+  // Keep this query aggressive so the Squad page feed stays as fresh as the
+  // Home dashboard's SQUAD FEED card. staleTime: 0 + refetchOnWindowFocus
+  // means switching back to the Squad tab triggers an immediate refetch,
+  // and the 15s background poll keeps long-open sessions current too.
   const { data, isLoading } = useQuery<SquadPayload>({
     queryKey: ["/api/squad"],
     queryFn: getQueryFn({ on401: "throw" }),
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    refetchInterval: 15_000,
   });
 
   if (isLoading || !data) {
@@ -224,10 +231,28 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   // server's activity list, mapping each LocalFeedEvent shape to a
   // SquadActivityItem so the row renderer is identical. Local events show
   // first so a fresh workout shows up here instantly, exactly like on Home.
-  // Squad isolation: only pull THIS squad's feed bucket. When the user has
-  // multiple squads, switching the header switcher swaps which bucket we read.
+  //
+  // Squad isolation: we pull BOTH this squad's bucket AND the global bucket.
+  // The global bucket is what workout-log events get pushed into (because
+  // SelectExercises.tsx doesn't know which squad is active when you finish a
+  // workout). Reading both keeps Squad live-activity in lockstep with Home,
+  // while squad-specific events (created, invited, reactions) stay isolated
+  // to their own bucket. Deduped by id at the end so we never double-render.
   const localFeed: LocalFeedEvent[] = (() => {
-    try { return getFeed(getUserEmail() || "anon", activeSquadName || null); } catch { return []; }
+    try {
+      const email = getUserEmail() || "anon";
+      const scoped = getFeed(email, activeSquadName || null);
+      const global = activeSquadName ? getFeed(email, null) : [];
+      const merged = [...scoped, ...global];
+      const seen = new Set<number>();
+      const deduped: LocalFeedEvent[] = [];
+      for (const e of merged) {
+        if (!seen.has(e.id)) { seen.add(e.id); deduped.push(e); }
+      }
+      // Most-recent first.
+      deduped.sort((a, b) => b.createdAt - a.createdAt);
+      return deduped;
+    } catch { return []; }
   })();
   const mappedLocal: SquadActivityItem[] = localFeed.map((e) => {
     const mins = minutesAgo(e.createdAt);

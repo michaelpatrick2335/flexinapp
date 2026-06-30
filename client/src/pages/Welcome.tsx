@@ -14,15 +14,21 @@ function GroupIcon({ color }: { color: string }) {
   );
 }
 
-function DnaIcon({ color }: { color: string }) {
+function ProgressIcon({ color }: { color: string }) {
+  // Clean "progress photo" glyph: a camera viewfinder bracket with an
+  // upward-trending bar-chart inside. Reads instantly as "track your progress
+  // visually" without the abstract DNA helix the previous icon used.
   return (
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M10 4c0 6 12 6 12 12s-12 6-12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none" />
-      <path d="M22 4c0 6-12 6-12 12s12 6 12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none" />
-      <line x1="11" y1="9" x2="21" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="11" y1="23" x2="21" y2="23" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="13" y1="13" x2="19" y2="13" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="13" y1="19" x2="19" y2="19" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      {/* Viewfinder corner brackets (top-left, top-right, bottom-left, bottom-right) */}
+      <path d="M5 11V7a2 2 0 0 1 2-2h4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M27 11V7a2 2 0 0 0-2-2h-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M5 21v4a2 2 0 0 0 2 2h4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M27 21v4a2 2 0 0 1-2 2h-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      {/* Ascending bars inside (3 bars, increasing height) */}
+      <rect x="10" y="19" width="3" height="5" rx="0.8" fill={color} />
+      <rect x="14.5" y="15" width="3" height="9" rx="0.8" fill={color} />
+      <rect x="19" y="11" width="3" height="13" rx="0.8" fill={color} />
     </svg>
   );
 }
@@ -63,6 +69,25 @@ interface WelcomeProps {
 
 export function Welcome({ onGetStarted, onLogIn, onTrainerSignup }: WelcomeProps) {
   const t = useTheme();
+
+  // TestFlight requirement: always render this screen starting at the top.
+  // iOS WKWebView remembers scroll position across navigations, so the
+  // welcome page sometimes mounted with the trainer CTA already in view.
+  // We force the window (and html/body) back to (0,0) on mount and lock
+  // body scroll while this screen is visible so a stray drag can't bump
+  // the page mid-render.
+  React.useEffect(() => {
+    try {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    } catch {}
+  }, []);
 
   return (
     <div
@@ -139,7 +164,7 @@ export function Welcome({ onGetStarted, onLogIn, onTrainerSignup }: WelcomeProps
         <FeatureCard
           title="Progress Photos"
           body="Snap weekly photos. See real side-by-side change."
-          icon={<DnaIcon color={t.accent} />}
+          icon={<ProgressIcon color={t.accent} />}
           theme={t}
         />
         <FeatureCard
