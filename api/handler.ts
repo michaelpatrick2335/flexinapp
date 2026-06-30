@@ -299,9 +299,9 @@ async function ensureTables(pool: Pool) {
       ON workouts (user_id, completed_at DESC);
 
     -- Progress scans. Each row is one weekly full-body photo the user takes.
-    -- We store the original `photo` (base64 data URL) and optionally the AI
-    -- `render` (Gemini output). Persistence was added in response to the
-    -- bug where photos disappeared after the "Keep It" confirmation because
+    -- We store the original photo column (base64 data URL) and optionally the
+    -- AI render column (Gemini output). Persistence was added in response to
+    -- the bug where photos disappeared after the Keep It confirmation because
     -- the previous implementation only updated the client query cache.
     CREATE TABLE IF NOT EXISTS progress_scans (
       id SERIAL PRIMARY KEY,
