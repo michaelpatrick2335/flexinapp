@@ -4,6 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTheme } from "@/lib/ThemeProvider";
 import { getQueryFn, API_BASE, getUserEmail } from "@/lib/queryClient";
+import { POSE_OUTLINE_MALE, POSE_OUTLINE_FEMALE } from "@/lib/poseOutlines";
 import flexinLogo from "@/assets/flexin_logo.png";
 // (silhouette PNGs removed — the user explicitly asked for an outline-only
 //  pose guide instead of the blue-tinted silhouette guy. The new
@@ -837,84 +838,13 @@ function ArrowRightIcon({ color }: { color: string }) {
     </svg>
   );
 }
-// Pose outline guide — a stylized full-body figure rendered as a stroke-only
-// SVG so the user sees a clean outline to stand inside, with no filled
-// "blue guy" inside the frame. The proportions roughly follow standard
-// figure-drawing guidelines (~7.5 heads tall, slight male/female hip-shoulder
-// ratio difference). Stroke uses the active theme accent at low opacity so
-// it's a guide, not a focal point.
+// Pose outline guide — hand-traced from the user-approved reference image
+// (IMG_5564.jpeg). The male path was extracted via potrace from a flood-filled
+// silhouette of the reference; the female variant is the same path warped in
+// x with a y-dependent factor (narrower shoulders + waist, wider hips). Both
+// live in `client/src/lib/poseOutlines.ts` and use a 200x520 viewBox.
 function PoseOutlineGuide({ accent, female }: { accent: string; female: boolean }) {
-  // Continuous closed-path anatomical outline matching the user-approved
-  // reference (clean black outline of a standing figure, arms slightly out
-  // from body with hands at hip level, feet together). Female and male share
-  // the same path topology — only shoulder width, waist taper, and hip width
-  // differ.
-  const cx = 100;
-  const headCy = 38;
-  const headRx = female ? 17 : 19;
-  const headRy = female ? 22 : 23;
-  const neckHalf = female ? 8 : 9;
-  const neckTop = headCy + headRy - 2;
-  const shoulderY = 88;
-  const shoulderHalf = female ? 44 : 52;
-  const armpitY = 108;
-  const waistY = 210;
-  const waistHalf = female ? 30 : 36;
-  const hipY = 260;
-  const hipHalf = female ? 46 : 44;
-  const elbowOffset = female ? 8 : 10;
-  const wristY = 268;
-  const armOuterTop = shoulderHalf + 2;
-  const armOuterMid = shoulderHalf + elbowOffset + 4;
-  const armOuterWrist = hipHalf + 4;
-  const armInnerWrist = hipHalf - 2;
-  const armInnerArmpit = shoulderHalf - 4;
-  const handTipY = 288;
-  const handHalf = 8;
-  const innerThighX = 5;
-  const kneeY = 380;
-  const kneeOuterHalf = 22;
-  const ankleY = 498;
-  const ankleOuterHalf = 14;
-  const footTipY = 510;
-  const footOuterHalf = 22;
-  const d = [
-    `M ${cx} ${headCy - headRy}`,
-    `C ${cx + headRx} ${headCy - headRy}, ${cx + headRx} ${headCy + headRy - 6}, ${cx + neckHalf} ${neckTop}`,
-    `L ${cx + neckHalf + 2} ${neckTop + 6}`,
-    `Q ${cx + shoulderHalf - 8} ${shoulderY - 4}, ${cx + armOuterTop} ${shoulderY}`,
-    `Q ${cx + armOuterMid} ${(shoulderY + wristY) / 2 - 10}, ${cx + armOuterWrist} ${wristY}`,
-    `Q ${cx + armOuterWrist + handHalf} ${wristY + 6}, ${cx + armOuterWrist + 2} ${handTipY}`,
-    `Q ${cx + armOuterWrist - 4} ${handTipY + 4}, ${cx + armInnerWrist} ${handTipY - 4}`,
-    `Q ${cx + armInnerWrist + 2} ${(wristY + armpitY) / 2}, ${cx + armInnerArmpit} ${armpitY}`,
-    `Q ${cx + waistHalf + 4} ${(armpitY + waistY) / 2}, ${cx + waistHalf} ${waistY}`,
-    `Q ${cx + hipHalf} ${(waistY + hipY) / 2 + 8}, ${cx + hipHalf - 2} ${hipY}`,
-    `Q ${cx + kneeOuterHalf + 6} ${(hipY + kneeY) / 2}, ${cx + kneeOuterHalf} ${kneeY}`,
-    `Q ${cx + ankleOuterHalf + 4} ${(kneeY + ankleY) / 2 + 10}, ${cx + ankleOuterHalf} ${ankleY}`,
-    `L ${cx + footOuterHalf} ${footTipY}`,
-    `L ${cx + innerThighX + 2} ${footTipY}`,
-    `L ${cx + innerThighX + 2} ${ankleY - 2}`,
-    `Q ${cx + innerThighX + 4} ${kneeY}, ${cx + innerThighX} ${(hipY + kneeY) / 2}`,
-    `L ${cx + innerThighX} ${hipY + 4}`,
-    `Q ${cx} ${hipY + 2}, ${cx - innerThighX} ${hipY + 4}`,
-    `L ${cx - innerThighX} ${(hipY + kneeY) / 2}`,
-    `Q ${cx - innerThighX - 4} ${kneeY}, ${cx - innerThighX - 2} ${ankleY - 2}`,
-    `L ${cx - innerThighX - 2} ${footTipY}`,
-    `L ${cx - footOuterHalf} ${footTipY}`,
-    `L ${cx - ankleOuterHalf} ${ankleY}`,
-    `Q ${cx - ankleOuterHalf - 4} ${(kneeY + ankleY) / 2 + 10}, ${cx - kneeOuterHalf} ${kneeY}`,
-    `Q ${cx - kneeOuterHalf - 6} ${(hipY + kneeY) / 2}, ${cx - hipHalf + 2} ${hipY}`,
-    `Q ${cx - hipHalf} ${(waistY + hipY) / 2 + 8}, ${cx - waistHalf} ${waistY}`,
-    `Q ${cx - waistHalf - 4} ${(armpitY + waistY) / 2}, ${cx - armInnerArmpit} ${armpitY}`,
-    `Q ${cx - armInnerWrist - 2} ${(wristY + armpitY) / 2}, ${cx - armInnerWrist} ${handTipY - 4}`,
-    `Q ${cx - armOuterWrist + 4} ${handTipY + 4}, ${cx - armOuterWrist - 2} ${handTipY}`,
-    `Q ${cx - armOuterWrist - handHalf} ${wristY + 6}, ${cx - armOuterWrist} ${wristY}`,
-    `Q ${cx - armOuterMid} ${(shoulderY + wristY) / 2 - 10}, ${cx - armOuterTop} ${shoulderY}`,
-    `Q ${cx - shoulderHalf + 8} ${shoulderY - 4}, ${cx - neckHalf - 2} ${neckTop + 6}`,
-    `L ${cx - neckHalf} ${neckTop}`,
-    `C ${cx - headRx} ${headCy + headRy - 6}, ${cx - headRx} ${headCy - headRy}, ${cx} ${headCy - headRy}`,
-    "Z",
-  ].join(" ");
+  const d = female ? POSE_OUTLINE_FEMALE : POSE_OUTLINE_MALE;
   return (
     <svg
       viewBox="0 0 200 520"
@@ -931,13 +861,14 @@ function PoseOutlineGuide({ accent, female }: { accent: string; female: boolean 
         d={d}
         fill="none"
         stroke={accent}
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
   );
 }
+
 
 function CameraIcon({ color, size = 20 }: { color: string; size?: number }) {
   return (
