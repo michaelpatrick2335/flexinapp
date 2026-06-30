@@ -11,22 +11,36 @@ import flexinLogo from "@/assets/flexin_logo.png";
 // to be larger than ~512px on iOS hi-DPI screens.
 async function compressDataUrl(
   dataUrl: string,
-  opts: { maxSide?: number; quality?: number } = {},
+  opts: { maxSide?: number; quality?: number; cropSquare?: boolean } = {},
 ): Promise<string> {
-  const { maxSide = 512, quality = 0.82 } = opts;
+  const { maxSide = 512, quality = 0.82, cropSquare = false } = opts;
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      let { width, height } = img;
-      const ratio = Math.min(1, maxSide / Math.max(width, height));
-      width = Math.max(1, Math.round(width * ratio));
-      height = Math.max(1, Math.round(height * ratio));
+      const srcW = img.width;
+      const srcH = img.height;
+      let sx = 0, sy = 0, sW = srcW, sH = srcH;
+      if (cropSquare) {
+        const side = Math.min(srcW, srcH);
+        // Center horizontally; bias vertically toward the top third so faces
+        // in portrait photos are framed properly (faces tend to sit above
+        // the geometric center of a portrait).
+        sx = Math.round((srcW - side) / 2);
+        sy = Math.round((srcH - side) * 0.25);
+        sW = side;
+        sH = side;
+      }
+      let outW = sW;
+      let outH = sH;
+      const ratio = Math.min(1, maxSide / Math.max(outW, outH));
+      outW = Math.max(1, Math.round(outW * ratio));
+      outH = Math.max(1, Math.round(outH * ratio));
       const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Canvas unavailable"));
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.drawImage(img, sx, sy, sW, sH, 0, 0, outW, outH);
       try {
         resolve(canvas.toDataURL("image/jpeg", quality));
       } catch (e) { reject(e); }
@@ -172,7 +186,7 @@ export function Profile({
     try {
       // Compress so we stay under the 1.5MB server cap and avoid huge DB rows.
       let dataUrl = rawDataUrl;
-      try { dataUrl = await compressDataUrl(rawDataUrl, { maxSide: 512, quality: 0.82 }); } catch {}
+      try { dataUrl = await compressDataUrl(rawDataUrl, { maxSide: 512, quality: 0.82, cropSquare: true }); } catch {}
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (userEmail) headers["x-user-email"] = userEmail;
       const resp = await fetch(`${API_BASE}/api/profile-pic`, {
@@ -310,7 +324,7 @@ export function Profile({
                 src={(user.profilePicUrl || user.avatarUrl) as string}
                 alt=""
                 onError={() => setAvatarImgFailed(true)}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 25%" }}
               />
             ) : (
               <span style={{

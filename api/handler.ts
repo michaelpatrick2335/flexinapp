@@ -313,6 +313,22 @@ async function ensureTables(pool: Pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_progress_scans_user_time
       ON progress_scans (user_id, created_at DESC);
+
+    -- User-defined custom workout days that appear alongside the built-in
+    -- Push/Pull/Legs tiles on the LogWorkout grid. Server-backed so the
+    -- list survives device reinstalls + syncs across devices (previously
+    -- localStorage-only).
+    CREATE TABLE IF NOT EXISTS custom_workout_days (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT 'Custom day',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_workout_days_user
+      ON custom_workout_days (user_id, created_at ASC);
   `);
 }
 
@@ -820,22 +836,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!email) return res.status(401).json({ error: "Sign in required" });
       const row = await getOrCreate(pool, email);
       const u = rowToUser(row);
-      const categoriesPayload = {
+      const builtins = [
+        { key: "push",     name: "Push Day",     summary: "Chest, Shoulders, Triceps",  icon: "bolt"  },
+        { key: "pull",     name: "Pull Day",     summary: "Back, Biceps",               icon: "pull"  },
+        { key: "legs",     name: "Leg Day",      summary: "Quads, Hamstrings, Calves",  icon: "legs"  },
+        { key: "fullbody", name: "Full Body",    summary: "Everything",                 icon: "body"  },
+        { key: "arms",     name: "Arm Day",      summary: "Biceps, Triceps, Forearms",  icon: "bicep" },
+        { key: "shoulders",name: "Shoulder Day", summary: "Front, Side, Rear Delts",    icon: "bolt"  },
+        { key: "glutes",   name: "Glute Day",    summary: "Glutes, Hamstrings",         icon: "legs"  },
+        { key: "back",     name: "Back Day",     summary: "Lats, Rhomboids, Traps",     icon: "pull"  },
+        { key: "chest",    name: "Chest Day",    summary: "Chest, Triceps",             icon: "body"  },
+        { key: "custom",   name: "Custom Day",   summary: "Build your own",             icon: "plus"  },
+      ];
+      // User-saved custom days follow the built-ins so the default tiles
+      // always appear first.
+      let customDays: { key: string; name: string; summary: string; icon: string }[] = [];
+      try {
+        const cr = await pool.query(
+          `SELECT key, name, summary FROM custom_workout_days
+             WHERE user_id = $1 ORDER BY created_at ASC`,
+          [u.id],
+        );
+        customDays = (cr.rows || []).map((r: any) => ({
+          key: String(r.key),
+          name: String(r.name),
+          summary: String(r.summary || "Custom day"),
+          icon: "plus",
+        }));
+      } catch (e) {
+        console.warn("[workout-categories] custom_workout_days fetch failed", e);
+      }
+      return res.json({
         sex: u.sex || "unspecified",
-        categories: [
-          { key: "push",     name: "Push Day",     summary: "Chest, Shoulders, Triceps",  icon: "bolt"  },
-          { key: "pull",     name: "Pull Day",     summary: "Back, Biceps",               icon: "pull"  },
-          { key: "legs",     name: "Leg Day",      summary: "Quads, Hamstrings, Calves",  icon: "legs"  },
-          { key: "fullbody", name: "Full Body",    summary: "Everything",                 icon: "body"  },
-          { key: "arms",     name: "Arm Day",      summary: "Biceps, Triceps, Forearms",  icon: "bicep" },
-          { key: "shoulders",name: "Shoulder Day", summary: "Front, Side, Rear Delts",    icon: "bolt"  },
-          { key: "glutes",   name: "Glute Day",    summary: "Glutes, Hamstrings",         icon: "legs"  },
-          { key: "back",     name: "Back Day",     summary: "Lats, Rhomboids, Traps",     icon: "pull"  },
-          { key: "chest",    name: "Chest Day",    summary: "Chest, Triceps",             icon: "body"  },
-          { key: "custom",   name: "Custom Day",   summary: "Build your own",             icon: "plus"  },
-        ],
-      };
-      return res.json(categoriesPayload);
+        categories: [...builtins, ...customDays],
+      });
+    }
+
+    // POST /api/custom-workout-day { name } -> creates a new custom day
+    // DELETE /api/custom-workout-day?key=custom-... -> removes one
+    if (path === "/custom-workout-day") {
+      if (!email) return res.status(401).json({ error: "Sign in required" });
+      const row = await getOrCreate(pool, email);
+      const u = rowToUser(row);
+      if (method === "POST") {
+        const body = (req.body || {}) as { name?: string; summary?: string };
+        const name = String(body.name || "").trim();
+        if (!name) return res.status(400).json({ error: "name required" });
+        if (name.length > 60) return res.status(400).json({ error: "name too long" });
+        const summary = String(body.summary || "Custom day").trim().slice(0, 80) || "Custom day";
+        const key = `custom-${Date.now()}`;
+        try {
+          await pool.query(
+            `INSERT INTO custom_workout_days (user_id, key, name, summary)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (user_id, key) DO NOTHING`,
+            [u.id, key, name, summary],
+          );
+        } catch (e) {
+          console.error("[custom-workout-day] insert failed", e);
+          return res.status(500).json({ error: "Could not save custom day" });
+        }
+        return res.json({ key, name, summary, icon: "plus" });
+      }
+      if (method === "DELETE") {
+        const key = String((req.query as any).key || "").trim();
+        if (!key) return res.status(400).json({ error: "key required" });
+        try {
+          await pool.query(
+            `DELETE FROM custom_workout_days WHERE user_id = $1 AND key = $2`,
+            [u.id, key],
+          );
+        } catch (e) {
+          console.error("[custom-workout-day] delete failed", e);
+          return res.status(500).json({ error: "Could not delete custom day" });
+        }
+        return res.json({ ok: true });
+      }
+      return res.status(405).json({ error: "Method not allowed" });
     }
 
     // ── GET /api/exercises?category=push ────────────────────────────────────

@@ -1,7 +1,7 @@
-import React, { useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useRef, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTheme } from "@/lib/ThemeProvider";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, queryClient, apiRequest } from "@/lib/queryClient";
 
 interface Category {
   key: string;
@@ -28,16 +28,9 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
   // see it without scrolling. Smooth-scroll on selection makes the next
   // action obvious.
   const ctaRef = useRef<HTMLButtonElement | null>(null);
-  // User-added custom workout days, persisted in localStorage so they
-  // survive navigation between Home and LogWorkout.
-  const [customDays, setCustomDays] = useState<Category[]>(() => {
-    try {
-      const raw = localStorage.getItem("flexin.customDays");
-      return raw ? (JSON.parse(raw) as Category[]) : [];
-    } catch { return []; }
-  });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addDraft, setAddDraft] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<CategoriesPayload>({
     queryKey: ["/api/workout-categories"],
@@ -45,32 +38,64 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
     staleTime: 5 * 60_000,
   });
 
-  // Server-provided day tiles ALWAYS render first. Custom user-added days
-  // (saved in localStorage from previous sessions, e.g. "Yoga") were
-  // previously visible BEFORE the server list finished loading because we
-  // rendered customs unconditionally — making it look like a random custom
-  // workout "popped up" before the defaults. To prevent that, we hold back
-  // custom days until the server payload arrives.
-  const baseCategories = data?.categories || [];
-  const categories = baseCategories.length === 0
-    ? [] // still loading — don't render orphan custom days alone
-    : [...baseCategories, ...customDays];
+  // The server now returns both built-in tiles AND the user's saved custom
+  // days. Built-ins always come first in the server response, so we just
+  // render whatever the server sends in order.
+  const categories = data?.categories || [];
   const selected = categories.find((c) => c.key === selectedKey) ?? categories[0];
 
-  function persistCustom(next: Category[]) {
-    setCustomDays(next);
-    try { localStorage.setItem("flexin.customDays", JSON.stringify(next)); } catch {}
-  }
+  // One-time migration: if the previous build saved any custom days to
+  // localStorage, POST them to the server then drop the local copy so they
+  // survive uninstall/reinstall going forward.
+  useEffect(() => {
+    if (!data) return;
+    try {
+      const raw = localStorage.getItem("flexin.customDays");
+      if (!raw) return;
+      const legacy = JSON.parse(raw) as { name?: string }[];
+      if (!Array.isArray(legacy) || legacy.length === 0) {
+        localStorage.removeItem("flexin.customDays");
+        return;
+      }
+      const knownNames = new Set((data.categories || []).map((c) => c.name.toLowerCase()));
+      Promise.all(
+        legacy
+          .filter((d) => d && typeof d.name === "string" && d.name.trim() && !knownNames.has(d.name.trim().toLowerCase()))
+          .map((d) => apiRequest("POST", "/api/custom-workout-day", { name: d.name!.trim() }).catch(() => null)),
+      ).then(() => {
+        try { localStorage.removeItem("flexin.customDays"); } catch {}
+        queryClient.invalidateQueries({ queryKey: ["/api/workout-categories"] });
+      });
+    } catch {}
+  }, [data]);
+
+  const addMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest("POST", "/api/custom-workout-day", { name });
+    },
+    onSuccess: async (_resp, name) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/workout-categories"] });
+      setAddDraft("");
+      setAddError(null);
+      setShowAddDialog(false);
+      // Best-effort: select whichever new tile matches the name we just saved.
+      try {
+        const fresh = queryClient.getQueryData<CategoriesPayload>(["/api/workout-categories"]);
+        const match = (fresh?.categories || []).find((c) => c.name.toLowerCase() === name.toLowerCase());
+        if (match) setSelectedKey(match.key);
+      } catch {}
+    },
+    onError: (e: any) => {
+      setAddError(e?.message || "Couldn't save");
+    },
+  });
 
   function handleAddDay() {
     const v = addDraft.trim();
     if (!v) { setShowAddDialog(false); return; }
-    const key = `custom-${Date.now()}`;
-    const newDay: Category = { key, name: v, summary: "Custom day", icon: "plus" };
-    persistCustom([...customDays, newDay]);
-    setSelectedKey(key);
-    setAddDraft("");
-    setShowAddDialog(false);
+    if (addMutation.isPending) return;
+    setAddError(null);
+    addMutation.mutate(v);
   }
 
   return (

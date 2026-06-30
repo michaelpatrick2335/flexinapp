@@ -126,6 +126,24 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
     } catch {}
   }
 
+  function logLiftForLift(name: string) {
+    const s = stats[name];
+    const hasAny = !!(s && (s.weight || s.reps || s.sets));
+    if (!hasAny) return;
+    try {
+      const parts: string[] = [];
+      if (s.weight) parts.push(`${s.weight} lbs`);
+      if (s.reps) parts.push(`${s.reps} reps`);
+      if (s.sets) parts.push(`${s.sets} sets`);
+      pushFeedEvent(getUserEmail() || "anon", {
+        userName: myName,
+        avatarUrl: myAvatar,
+        message: `${name}${parts.length ? " — " + parts.join(" x ") : ""}`,
+        kind: "workout_logged",
+      });
+    } catch {}
+  }
+
   const toggle = (name: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -233,25 +251,43 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
                     <StatField t={t} label="Weight" value={row.weight} suffix="lbs"
                       onChange={(v) => updateStat(name, "weight", v)} />
                   </div>
-                  <button
-                    onClick={() => logPRForLift(name)}
-                    disabled={!canLogPR}
-                    style={{
-                      alignSelf: "flex-start", padding: "8px 14px", borderRadius: 10,
-                      border: "none",
-                      background: canLogPR
-                        ? `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`
-                        : t.bgInput,
-                      color: canLogPR ? t.accentText : t.textMuted,
-                      fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
-                      cursor: canLogPR ? "pointer" : "not-allowed",
-                      opacity: canLogPR ? 1 : 0.6,
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}
-                  >
-                    <BoltIcon color={canLogPR ? t.accentText : t.textMuted} size={12} />
-                    LOG PR
-                  </button>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => logLiftForLift(name)}
+                      disabled={!(row.weight || row.reps || row.sets)}
+                      style={{
+                        padding: "8px 14px", borderRadius: 10,
+                        border: `1.5px solid ${t.border}`,
+                        background: t.bgInput,
+                        color: (row.weight || row.reps || row.sets) ? t.text : t.textMuted,
+                        fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
+                        cursor: (row.weight || row.reps || row.sets) ? "pointer" : "not-allowed",
+                        opacity: (row.weight || row.reps || row.sets) ? 1 : 0.6,
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}
+                    >
+                      LOG LIFT
+                    </button>
+                    <button
+                      onClick={() => logPRForLift(name)}
+                      disabled={!canLogPR}
+                      style={{
+                        padding: "8px 14px", borderRadius: 10,
+                        border: "none",
+                        background: canLogPR
+                          ? `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`
+                          : t.bgInput,
+                        color: canLogPR ? t.accentText : t.textMuted,
+                        fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
+                        cursor: canLogPR ? "pointer" : "not-allowed",
+                        opacity: canLogPR ? 1 : 0.6,
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}
+                    >
+                      <BoltIcon color={canLogPR ? t.accentText : t.textMuted} size={12} />
+                      LOG PR
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

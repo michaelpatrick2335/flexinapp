@@ -134,10 +134,29 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, evolutionTimeline } = data;
 
   // ── Home photo picker helpers ────────────────────────────────────────
-  async function uploadHomePhoto(dataUrl: string) {
+  // The picker can pass us either a fresh data URL (from <input type=file>
+  // or @capacitor/camera) OR a regular http(s) URL pointing at a previously
+  // uploaded progress-scan photo. The /api/home-photo endpoint only accepts
+  // `data:image/...;base64,...` payloads, so we normalize first.
+  async function urlToDataUrl(src: string): Promise<string> {
+    if (src.startsWith("data:")) return src;
+    const blob = await fetch(src).then((r) => {
+      if (!r.ok) throw new Error(`Could not load photo (${r.status})`);
+      return r.blob();
+    });
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Could not read photo"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function uploadHomePhoto(srcUrl: string) {
     setPickerUploading(true);
     setPickerError(null);
     try {
+      const dataUrl = await urlToDataUrl(srcUrl);
       const email = getUserEmail();
       const resp = await fetch(`${API_BASE}/api/home-photo`, {
         method: "POST",
@@ -1009,7 +1028,7 @@ function PRStatsModal({ t, userName, avatarUrl, onClose }: { t: any; userName: s
                 marginBottom: 8,
               }}
             />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
               <PRMiniInput t={t} value={liftWeight} onChange={setLiftWeight} placeholder="Weight" suffix="lbs" />
               <PRMiniInput t={t} value={liftReps}   onChange={setLiftReps}   placeholder="Reps" />
               <PRMiniInput t={t} value={liftSets}   onChange={setLiftSets}   placeholder="Sets" />
