@@ -269,73 +269,100 @@ function BoltIcon({ color, size = 16 }: { color: string; size?: number }) {
   );
 }
 
-// Tiny accent icons for category tiles. The actual exercise rows (Screen 7)
-// have NO icons per product spec — only category tiles get an icon.
+// Modern category glyphs — bold gym/fitness motifs (barbells, dumbbells, kettlebells)
+// with thick strokes and filled accent shapes. Each icon uses viewBox 24x24.
 function CategoryIcon({ icon, color, size = 24 }: { icon: string; color: string; size?: number }) {
+  const sw = 2.4;
   switch (icon) {
     case "bolt":
-      return <BoltIcon color={color} size={size} />;
-    case "pull":
-      // person doing a pull-up
+      // Double lightning bolt — power / energy day
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <path d="M4 4h16M9 4v4M15 4v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-          <circle cx="12" cy="11" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 13v8M8 16l4-3 4 3M9 22l3-1 3 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M11 2L4 13h5l-1 9 8-12h-5l1-8z" fill={color} />
+          <path d="M19 2l-3 5h2l-2 5" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "pull":
+      // Pull-up bar + flexed bicep — back / pull day
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <path d="M3 5h18M5 3v4M19 3v4" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d="M9 5v3M15 5v3" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d="M7 10c2 3 4 4 5 4s3-1 5-4" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="15" r="2.2" fill={color} />
+          <path d="M12 17v5" stroke={color} strokeWidth={sw} strokeLinecap="round" />
         </svg>
       );
     case "legs":
+      // Barbell squat — bar with plates on top, quad wedge below
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 6v6M10 12l-2 8M14 12l2 8M9 22h2M15 22h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 5h16" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <rect x="2" y="3" width="2.5" height="4" rx="0.6" fill={color} />
+          <rect x="19.5" y="3" width="2.5" height="4" rx="0.6" fill={color} />
+          <path d="M8 9l-2 13M16 9l2 13M9 15h6" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case "glutes":
+      // Kettlebell — posterior chain
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 6v3M8 12c0-1.5 1.8-3 4-3s4 1.5 4 3v3c0 1.5-1.8 2.5-4 2.5S8 16.5 8 15v-3zM10 17l-1 5M14 17l1 5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 5c0-2 6-2 6 0v2" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d="M8 8h8c2 0 3 2 3 5s-2 8-7 8s-7-5-7-8s1-5 3-5z" fill={color} />
         </svg>
       );
     case "upper":
+      // Dumbbell — chest / shoulder press
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 6v9M7 10l5-2 5 2M6 14l3-2M18 14l-3-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="2" y="7" width="3.5" height="10" rx="1" fill={color} />
+          <rect x="5" y="5" width="2.5" height="14" rx="0.8" fill={color} />
+          <rect x="7" y="10.5" width="10" height="3" fill={color} />
+          <rect x="16.5" y="5" width="2.5" height="14" rx="0.8" fill={color} />
+          <rect x="18.5" y="7" width="3.5" height="10" rx="1" fill={color} />
         </svg>
       );
     case "full":
+      // Barbell deadlift — long bar with plates on each end
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 6v8M7 9l5-1 5 1M9 14v8M15 14v8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="4" y="11" width="16" height="2" rx="0.8" fill={color} />
+          <rect x="4" y="6" width="2.6" height="12" rx="0.8" fill={color} />
+          <rect x="17.4" y="6" width="2.6" height="12" rx="0.8" fill={color} />
+          <rect x="1" y="8.5" width="2.4" height="7" rx="0.6" fill={color} />
+          <rect x="20.6" y="8.5" width="2.4" height="7" rx="0.6" fill={color} />
         </svg>
       );
     case "body":
-      // Full body — standing person
+      // Dynamic runner — cardio / full-body motion
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 6v8M9 14v8M15 14v8M8 9l4-1 4 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="15" cy="4" r="2.2" fill={color} />
+          <path d="M14 7l-3 7" stroke={color} strokeWidth={sw + 0.4} strokeLinecap="round" />
+          <path d="M14 9l4 3M11 11l-4 1" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d="M11 14l5 5M11 14l-3 7" stroke={color} strokeWidth={sw + 0.4} strokeLinecap="round" />
+          <path d="M2 6h3M2 10h2" stroke={color} strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
         </svg>
       );
     case "plus":
-      // Custom day — person + plus marker
+      // Bold circled plus — add custom day
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="10" cy="5" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M10 7v8M8 15v6M12 15v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M17 4h5M19.5 1.5v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="9" fill={color} />
+          <path d="M12 7v10M7 12h10" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" />
         </svg>
       );
     case "custom":
     default:
+      // Dumbbell + plus badge — custom workout
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.8" />
-          <path d="M12 6v8M9 14v8M15 14v8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M16 4h6M19 1v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+          <rect x="2" y="12" width="2.5" height="7" rx="0.6" fill={color} />
+          <rect x="4.5" y="10.5" width="2" height="10" rx="0.6" fill={color} />
+          <rect x="6.5" y="14" width="7" height="3" fill={color} />
+          <rect x="13.5" y="10.5" width="2" height="10" rx="0.6" fill={color} />
+          <circle cx="19" cy="6" r="4.5" fill={color} />
+          <path d="M19 3.5v5M16.5 6h5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       );
   }
