@@ -23,10 +23,10 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
   const [customs, setCustoms] = useState<string[]>([]);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customDraft, setCustomDraft] = useState("");
-  // "Track stats on all lifts" — when on, every selected exercise reveals
-  // sets / reps / weight inputs the user can fill in inline. Defaults off
-  // for the fast "just log a workout" flow.
-  const [trackStats, setTrackStats] = useState(false);
+  // Per-lift expansion: tapping a lift name opens a dropdown beneath it with
+  // sets/reps/weight inputs + a "LOG PR" button. The checkbox on the right
+  // still toggles selection independently.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   type StatRow = { sets: string; reps: string; weight: string };
   const [stats, setStats] = useState<Record<string, StatRow>>({});
   function updateStat(name: string, field: keyof StatRow, value: string) {
@@ -35,6 +35,12 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
       return { ...prev, [name]: { ...cur, [field]: value } };
     });
   }
+
+  // Pull the user's real name + avatar from the dashboard cache so feed events
+  // are attributed to them ("Mike — 225 lbs") instead of the generic "You".
+  const dashboard = queryClient.getQueryData<any>(["/api/dashboard"]);
+  const myName: string = (dashboard?.user?.name as string) || "You";
+  const myAvatar: string | null = (dashboard?.user?.avatarUrl as string | null) || null;
 
   const { data, isLoading } = useQuery<ExercisesPayload>({
     queryKey: [`/api/exercises?category=${category.key}`],
@@ -47,12 +53,18 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
     return [...builtins, ...customs];
   }, [data, customs]);
 
+  function liftsWithStats(): string[] {
+    return Array.from(selected).filter((name) => {
+      const s = stats[name];
+      return !!(s && (s.sets || s.reps || s.weight));
+    });
+  }
+
   const completeMutation = useMutation({
     mutationFn: async () => {
-      // When the user opts in to stat tracking, fold the per-lift sets/reps/weight
-      // into the workout `notes` so the data is preserved server-side.
-      const statNotes = trackStats
-        ? Array.from(selected)
+      const tracked = liftsWithStats();
+      const statNotes = tracked.length
+        ? tracked
             .map((name) => {
               const s = stats[name];
               if (!s) return null;
@@ -79,28 +91,40 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
       try {
         const count = selected.size;
         pushFeedEvent(getUserEmail() || "anon", {
-          userName: "You",
+          userName: myName,
+          avatarUrl: myAvatar,
           message: `crushed ${category.name} — ${count} exercise${count === 1 ? "" : "s"}`,
           kind: "workout_logged",
         });
-        // If stats were tracked, also emit a PR event per lift with a weight
-        // so it surfaces in the dashboard PR Stats popup.
-        if (trackStats) {
-          for (const name of Array.from(selected)) {
-            const s = stats[name];
-            if (!s || !s.weight) continue;
-            pushFeedEvent(getUserEmail() || "anon", {
-              userName: "You",
-              message: `${name} — ${s.weight} lbs${s.reps ? ` x ${s.reps}` : ""}${s.sets ? ` x ${s.sets} sets` : ""}`,
-              kind: "pr",
-            });
-          }
+        // Per-lift PR events for any lift the user typed a weight into.
+        for (const name of liftsWithStats()) {
+          const s = stats[name];
+          if (!s || !s.weight) continue;
+          pushFeedEvent(getUserEmail() || "anon", {
+            userName: myName,
+            avatarUrl: myAvatar,
+            message: `${name} — ${s.weight} lbs${s.reps ? ` x ${s.reps}` : ""}${s.sets ? ` x ${s.sets} sets` : ""}`,
+            kind: "pr",
+          });
         }
       } catch {}
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       onCompleted();
     },
   });
+
+  function logPRForLift(name: string) {
+    const s = stats[name];
+    if (!s || !s.weight) return;
+    try {
+      pushFeedEvent(getUserEmail() || "anon", {
+        userName: myName,
+        avatarUrl: myAvatar,
+        message: `${name} — ${s.weight} lbs${s.reps ? ` x ${s.reps}` : ""}${s.sets ? ` x ${s.sets} sets` : ""}`,
+        kind: "pr",
+      });
+    } catch {}
+  }
 
   const toggle = (name: string) => {
     setSelected((prev) => {
@@ -146,10 +170,10 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
         <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>{category.name.toUpperCase()}</div>
       </div>
       <div style={{ textAlign: "center", color: t.textMuted, fontSize: 14, marginTop: 4, marginBottom: 14 }}>
-        Select exercises
+        Tap a lift to log stats · check to add
       </div>
 
-      {/* Exercise list — text + checkbox only, NO icons */}
+      {/* Exercise list — per-lift expandable dropdown */}
       <div style={{ flex: 1, padding: "0 18px", overflow: "auto" }}>
         {isLoading && (
           <div style={{ color: t.textMuted, fontSize: 13, padding: 20, textAlign: "center" }}>Loading exercises…</div>
@@ -161,15 +185,75 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
         )}
         {allNames.map((name, i) => {
           const checked = selected.has(name);
+          const isOpen = expanded.has(name);
+          const row = stats[name] || { sets: "", reps: "", weight: "" };
+          const canLogPR = !!row.weight;
           return (
-            <div key={name} onClick={() => toggle(name)} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "16px 4px",
+            <div key={name} style={{
               borderBottom: i < allNames.length - 1 ? `1px solid ${t.border}` : "none",
-              cursor: "pointer",
             }}>
-              <span style={{ fontSize: 16, color: t.text, fontWeight: 500 }}>{name}</span>
-              <Checkbox checked={checked} t={t} />
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "16px 4px",
+              }}>
+                <button
+                  onClick={() => {
+                    // Tapping the name opens the dropdown AND auto-selects
+                    // the lift (so logged stats match intent).
+                    setExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(name)) next.delete(name); else next.add(name);
+                      return next;
+                    });
+                    if (!checked) toggle(name);
+                  }}
+                  style={{
+                    flex: 1, background: "transparent", border: "none", padding: 0,
+                    color: t.text, fontSize: 16, fontWeight: 500, textAlign: "left",
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+                  }}
+                >
+                  <Chevron color={t.textMuted} open={isOpen} />
+                  <span>{name}</span>
+                </button>
+                <div onClick={() => toggle(name)} style={{ cursor: "pointer", padding: "4px 0 4px 12px" }}>
+                  <Checkbox checked={checked} t={t} />
+                </div>
+              </div>
+              {isOpen && (
+                <div style={{
+                  padding: "4px 6px 14px 30px",
+                  display: "flex", flexDirection: "column", gap: 10,
+                }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    <StatField t={t} label="Sets" value={row.sets}
+                      onChange={(v) => updateStat(name, "sets", v)} />
+                    <StatField t={t} label="Reps" value={row.reps}
+                      onChange={(v) => updateStat(name, "reps", v)} />
+                    <StatField t={t} label="Weight" value={row.weight} suffix="lbs"
+                      onChange={(v) => updateStat(name, "weight", v)} />
+                  </div>
+                  <button
+                    onClick={() => logPRForLift(name)}
+                    disabled={!canLogPR}
+                    style={{
+                      alignSelf: "flex-start", padding: "8px 14px", borderRadius: 10,
+                      border: "none",
+                      background: canLogPR
+                        ? `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`
+                        : t.bgInput,
+                      color: canLogPR ? t.accentText : t.textMuted,
+                      fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
+                      cursor: canLogPR ? "pointer" : "not-allowed",
+                      opacity: canLogPR ? 1 : 0.6,
+                      display: "flex", alignItems: "center", gap: 6,
+                    }}
+                  >
+                    <BoltIcon color={canLogPR ? t.accentText : t.textMuted} size={12} />
+                    LOG PR
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -242,7 +326,7 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
   );
 }
 
-// ─── Checkbox ─────────────────────────────────────────────────────────
+// ─── StatField / Checkbox ─────────────────────────────────────────────
 function StatField({
   t, label, value, onChange, suffix,
 }: {
@@ -316,6 +400,16 @@ function PlusIcon({ color, size = 16 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function Chevron({ color, open, size = 14 }: { color: string; open: boolean; size?: number }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 120ms ease" }}
+    >
+      <path d="M9 6l6 6-6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

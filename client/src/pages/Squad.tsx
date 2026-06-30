@@ -65,6 +65,12 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   const isFemale = t.name === "pink";
   const maxAvatar = isFemale ? maxFemale : maxMale;
 
+  // Pull the user's real name + avatar from the dashboard cache so feed events
+  // attribute to the user (not the placeholder "You").
+  const dashboardCached = queryClient.getQueryData<any>(["/api/dashboard"]);
+  const myName: string = (dashboardCached?.user?.name as string) || "You";
+  const myAvatar: string | null = (dashboardCached?.user?.avatarUrl as string | null) || null;
+
   // Modal state: which energy picker is open.
   // "send"   = bottom-of-Live-Activity "Send energy" picker (member targets).
   // "invite" = members-box "+" invite sheet.
@@ -158,7 +164,8 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
     try {
       const email = getUserEmail() || "anon";
       pushFeedEvent(email, {
-        userName: "You",
+        userName: myName,
+        avatarUrl: myAvatar,
         message: `sent ${emoji} to the squad`,
         kind: "live",
         squad: activeSquadName || null,
@@ -185,7 +192,8 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
     try {
       const email = getUserEmail() || "anon";
       pushFeedEvent(email, {
-        userName: "You",
+        userName: myName,
+        avatarUrl: myAvatar,
         message: `flexed on the squad — ${activityText}`,
         kind: "pr",
         squad: activeSquadName || null,
@@ -223,8 +231,21 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
   }
 
   const { squad, coach, activity: serverActivity, reactions, aiInsight, ghostMode, mvp, unreadNotifications } = data;
-  const memberByName = (name: string): SquadMember =>
-    squad.members.find((m) => m.name === name) || { name, initials: name.slice(0, 1).toUpperCase(), bg: t.accent };
+  const memberByName = (name: string): SquadMember => {
+    const existing = squad.members.find((m) => m.name === name);
+    if (existing) return existing;
+    // If the row is the current user, surface their real avatar from the
+    // dashboard cache so feed entries show profile pic + real name.
+    if (myName && name === myName) {
+      return {
+        name: myName,
+        initials: myName.slice(0, 1).toUpperCase(),
+        bg: t.accent,
+        avatarUrl: myAvatar,
+      };
+    }
+    return { name, initials: (name || "?").slice(0, 1).toUpperCase(), bg: t.accent };
+  };
 
   // ── Live Activity is the SAME feed as the Home dashboard SQUAD FEED card.
   // We merge any local feed events (squad creation, workout logs) into the
@@ -271,7 +292,7 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
       e.kind === "pr" ? "clap" : e.kind === "progress" ? "eyes" : "fire";
     return {
       id: e.id,
-      member: e.userName || "You",
+      member: e.userName || myName || "You",
       kind: k,
       text: e.message,
       highlight: "",
@@ -1576,8 +1597,12 @@ function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) 
   function logWinnerAsPR() {
     if (!lastWinner) return dismissWinner();
     try {
+      const cached = queryClient.getQueryData<any>(["/api/dashboard"]);
+      const winnerName: string = (cached?.user?.name as string) || "You";
+      const winnerAvatar: string | null = (cached?.user?.avatarUrl as string | null) || null;
       pushFeedEvent(email, {
-        userName: "You",
+        userName: winnerName,
+        avatarUrl: winnerAvatar,
         message: `${lastWinner.lift} — squad PR of the week`,
         kind: "pr",
       });

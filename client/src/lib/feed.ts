@@ -8,6 +8,9 @@
 export interface LocalFeedEvent {
   id: number;
   userName: string;
+  // Optional avatar so the feed can render the user's real profile picture
+  // next to their name. Falls back to initials when missing.
+  avatarUrl?: string | null;
   message: string;
   // Open string so callers can pass arbitrary kinds (e.g. "workout", "pr",
   // "progress", "live") without TS gymnastics.
@@ -57,6 +60,7 @@ export function pushFeedEvent(
       energyDelta: partial.energyDelta ?? 0,
       reactions: partial.reactions ?? {},
       userName: partial.userName,
+      avatarUrl: partial.avatarUrl ?? null,
       message: partial.message,
       kind: partial.kind,
       squad: squad,

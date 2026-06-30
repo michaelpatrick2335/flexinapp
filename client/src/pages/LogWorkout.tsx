@@ -150,11 +150,11 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
                   white circle. Keeps the layout/size identical so tiles
                   don't jump, while giving every day a clean uniform mark. */}
               <div style={{
-                width: 32, height: 32, display: "grid", placeItems: "center",
+                width: 24, height: 24, display: "grid", placeItems: "center",
                 flexShrink: 0,
               }}>
                 <div style={{
-                  width: 22, height: 22, borderRadius: "50%",
+                  width: 12, height: 12, borderRadius: "50%",
                   background: isSelected ? t.accentText : "#ffffff",
                   boxShadow: isSelected ? "none" : "0 0 0 1px rgba(255,255,255,0.15)",
                 }} />

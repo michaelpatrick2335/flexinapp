@@ -8,7 +8,7 @@ import flexinLogo from "@/assets/flexin_logo.png";
 import { avatarImageFor } from "@/lib/avatars";
 import { GoalBodyTypeModal } from "@/components/GoalBodyTypeModal";
 import { getUserEmail } from "@/lib/queryClient";
-import { getFeed, minutesAgo } from "@/lib/feed";
+import { getFeed, minutesAgo, pushFeedEvent } from "@/lib/feed";
 
 // ── Types matching /api/dashboard response ────────────────────────────────
 interface DashboardPayload {
@@ -110,6 +110,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
       local = getFeed(getUserEmail() || "anon").map((e) => ({
         id: e.id,
         userName: e.userName,
+        avatarUrl: e.avatarUrl ?? null,
         message: e.message,
         kind: e.kind,
         energyDelta: e.energyDelta,
@@ -205,7 +206,12 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
       />
 
       {prStatsOpen && (
-        <PRStatsModal t={t} onClose={() => setPrStatsOpen(false)} />
+        <PRStatsModal
+          t={t}
+          userName={user.name || "You"}
+          avatarUrl={user.avatarUrl || null}
+          onClose={() => setPrStatsOpen(false)}
+        />
       )}
 
       {/* ═════════════════════ HOME PHOTO PICKER MODAL ═════════════════════ */}
@@ -416,22 +422,21 @@ function HeroSection({
 
         {/* RIGHT column: weekly scan + body deltas */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 18 }}>
-          {/* Weekly Scan card — doubles as the PR Stats entry point. Tapping
-              opens a popup with the user's logged personal records. */}
+          {/* Tap to open the PR Stats popup where the user can review and
+              log new personal records. Single-line label per v8 spec. */}
           <button
             onClick={onOpenPRStats}
-            aria-label="View PR stats"
+            aria-label="Log a PR stat"
             style={{
               background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 12,
-              padding: "8px 12px", display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 14px", display: "flex", alignItems: "center", gap: 8,
               cursor: "pointer", color: t.text, textAlign: "left",
             }}
           >
             <BoltIcon color={t.accent} size={14} />
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 11, color: t.text, fontWeight: 700, letterSpacing: 0.8 }}>PR STATS</span>
-              <span style={{ fontSize: 10, color: t.textMuted }}>Scan: {weeklyScanDaysLeft}d left</span>
-            </div>
+            <span style={{ fontSize: 11, color: t.text, fontWeight: 800, letterSpacing: 1.2 }}>
+              LOG STAT
+            </span>
           </button>
 
           {/* Body Deltas */}
@@ -577,7 +582,7 @@ function HomePhotoPicker({
 }
 
 // ════════════════════════════ SQUAD FEED ════════════════════════════
-function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: DashboardPayload["squadFeed"]; onOpenFeed: () => void; onOpenSquad: () => void }) {
+function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: any[]; onOpenFeed: () => void; onOpenSquad: () => void }) {
   return (
     <div
       onClick={onOpenSquad}
@@ -600,12 +605,23 @@ function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: Das
         )}
         {feed.slice(0, 4).map((f) => (
           <div key={f.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 14,
-              background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
-              display: "grid", placeItems: "center", color: t.accentText, fontWeight: 800, fontSize: 12,
-              flexShrink: 0,
-            }}>{f.userName.charAt(0).toUpperCase()}</div>
+            {f.avatarUrl ? (
+              <img
+                src={f.avatarUrl}
+                alt={f.userName}
+                style={{
+                  width: 28, height: 28, borderRadius: 14, objectFit: "cover",
+                  flexShrink: 0, border: `1px solid ${t.border}`,
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 28, height: 28, borderRadius: 14,
+                background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                display: "grid", placeItems: "center", color: t.accentText, fontWeight: 800, fontSize: 12,
+                flexShrink: 0,
+              }}>{(f.userName || "?").charAt(0).toUpperCase()}</div>
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, lineHeight: 1.3 }}>
                 <span style={{ fontWeight: 700, color: t.text }}>{f.userName}</span>
@@ -877,13 +893,43 @@ function CalendarIcon({ color, size = 16 }: { color: string; size?: number }) {
 // a quick summary keyed by exercise name. Replaces the old Weekly Scan
 // pill's no-op behavior. PRs are stored locally via pushFeedEvent so this
 // works offline and does not need a backend round-trip.
-function PRStatsModal({ t, onClose }: { t: any; onClose: () => void }) {
+function PRStatsModal({ t, userName, avatarUrl, onClose }: { t: any; userName: string; avatarUrl: string | null; onClose: () => void }) {
   const email = (getUserEmail() || "anon").toLowerCase();
+  // Local refresh tick so newly logged PRs appear immediately.
+  const [tick, setTick] = useState(0);
+  // Inline "Log a PR" form
+  const [showForm, setShowForm] = useState(false);
+  const [liftName, setLiftName] = useState("");
+  const [liftWeight, setLiftWeight] = useState("");
+  const [liftReps, setLiftReps] = useState("");
+  const [liftSets, setLiftSets] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function submitPR() {
+    const name = liftName.trim();
+    const wt = liftWeight.trim();
+    if (!name) { setFormError("Lift name required"); return; }
+    if (!wt) { setFormError("Weight required"); return; }
+    try {
+      pushFeedEvent(email, {
+        userName,
+        avatarUrl,
+        message: `${name} — ${wt} lbs${liftReps ? ` x ${liftReps}` : ""}${liftSets ? ` x ${liftSets} sets` : ""}`,
+        kind: "pr",
+      });
+    } catch {}
+    setLiftName(""); setLiftWeight(""); setLiftReps(""); setLiftSets("");
+    setFormError(null);
+    setShowForm(false);
+    setTick((n) => n + 1);
+  }
+
   // Aggregate PRs across global + scoped feed buckets.
   const all = React.useMemo(() => {
     try { return getFeed(email, null).filter((e) => e?.kind === "pr"); }
     catch { return [] as any[]; }
-  }, [email]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, tick]);
   // Group by message-derived lift name (best-effort: take the first token
   // before " — " or full message). Each entry shows the most recent.
   const groups = new Map<string, { message: string; createdAt: number; count: number }>();
@@ -927,6 +973,71 @@ function PRStatsModal({ t, onClose }: { t: any; onClose: () => void }) {
             aria-label="Close"
           >×</button>
         </div>
+
+        {/* Log a new PR — either a CTA button or the inline form. */}
+        {!showForm ? (
+          <button
+            onClick={() => setShowForm(true)}
+            style={{
+              width: "100%", padding: "12px 14px", borderRadius: 12,
+              background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+              color: t.accentText, border: "none", fontSize: 13, fontWeight: 800,
+              letterSpacing: 1.2, cursor: "pointer", marginBottom: 14,
+              boxShadow: `0 8px 22px ${t.accentGlow}`,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}
+          >
+            <BoltIcon color={t.accentText} size={14} />
+            LOG A PR
+          </button>
+        ) : (
+          <div style={{
+            background: t.bgInput, border: `1px solid ${t.accent}40`,
+            borderRadius: 14, padding: 12, marginBottom: 14,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5, color: t.accent, marginBottom: 8 }}>
+              NEW PR
+            </div>
+            <input
+              value={liftName}
+              onChange={(e) => setLiftName(e.target.value)}
+              placeholder="Lift name (e.g. Bench Press)"
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10,
+                padding: "10px 12px", color: t.text, fontSize: 13, outline: "none",
+                marginBottom: 8,
+              }}
+            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <PRMiniInput t={t} value={liftWeight} onChange={setLiftWeight} placeholder="Weight" suffix="lbs" />
+              <PRMiniInput t={t} value={liftReps}   onChange={setLiftReps}   placeholder="Reps" />
+              <PRMiniInput t={t} value={liftSets}   onChange={setLiftSets}   placeholder="Sets" />
+            </div>
+            {formError && (
+              <div style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{formError}</div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={submitPR}
+                style={{
+                  flex: 1, padding: "10px 12px", borderRadius: 10, border: "none",
+                  background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                  color: t.accentText, fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: "pointer",
+                }}
+              >SAVE PR</button>
+              <button
+                onClick={() => { setShowForm(false); setFormError(null); }}
+                style={{
+                  padding: "10px 14px", borderRadius: 10,
+                  background: "transparent", border: `1px solid ${t.border}`,
+                  color: t.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                }}
+              >CANCEL</button>
+            </div>
+          </div>
+        )}
+
         {items.length === 0 ? (
           <div style={{ color: t.textMuted, fontSize: 13, lineHeight: 1.5, padding: "12px 4px" }}>
             No PRs logged yet. Hit a personal record on any lift and it'll show up here.
@@ -952,6 +1063,35 @@ function PRStatsModal({ t, onClose }: { t: any; onClose: () => void }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Small numeric input used inside PRStatsModal's "Log a PR" form.
+function PRMiniInput({
+  t, value, onChange, placeholder, suffix,
+}: {
+  t: any; value: string; onChange: (v: string) => void; placeholder: string; suffix?: string;
+}) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center",
+      background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10,
+      padding: "8px 10px",
+    }}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
+        placeholder={placeholder}
+        inputMode="numeric"
+        style={{
+          flex: 1, minWidth: 0, background: "transparent", border: "none",
+          color: t.text, fontSize: 13, fontWeight: 700, outline: "none",
+        }}
+      />
+      {suffix && (
+        <span style={{ fontSize: 10, color: t.textMuted, marginLeft: 4 }}>{suffix}</span>
+      )}
     </div>
   );
 }

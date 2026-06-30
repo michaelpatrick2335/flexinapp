@@ -112,6 +112,9 @@ export function Profile({
   const [avatarError, setAvatarError] = useState<string | null>(null);
   // If the avatar image fails to load (404, stale URL), fall back to initial.
   const [avatarImgFailed, setAvatarImgFailed] = useState(false);
+  // Full-screen viewer for the profile picture so the user can see it
+  // edge-to-edge ("make the picture fit the whole screen").
+  const [picFullscreen, setPicFullscreen] = useState(false);
 
   // Inline edit dialog state. We use one dialog component for name/age/weight
   // so any "row" on the profile can pop the same prompt with the right field.
@@ -286,14 +289,22 @@ export function Profile({
             border: `2px solid ${t.accent}`,
             boxShadow: `0 0 26px ${t.accentGlow}, inset 0 0 16px ${t.accentGlow}`,
           }} />
-          {/* Avatar circle */}
-          <div style={{
-            position: "absolute", inset: 6,
-            borderRadius: 78,
-            background: (user.profilePicUrl || user.avatarUrl) ? "transparent" : avatarBg,
-            display: "grid", placeItems: "center",
-            overflow: "hidden",
-          }}>
+          {/* Avatar circle — tap to view full screen */}
+          <div
+            onClick={() => {
+              if ((user.profilePicUrl || user.avatarUrl) && !avatarImgFailed) {
+                setPicFullscreen(true);
+              }
+            }}
+            style={{
+              position: "absolute", inset: 6,
+              borderRadius: 78,
+              background: (user.profilePicUrl || user.avatarUrl) ? "transparent" : avatarBg,
+              display: "grid", placeItems: "center",
+              overflow: "hidden",
+              cursor: (user.profilePicUrl || user.avatarUrl) && !avatarImgFailed ? "pointer" : "default",
+            }}
+          >
             {(user.profilePicUrl || user.avatarUrl) && !avatarImgFailed ? (
               <img
                 src={(user.profilePicUrl || user.avatarUrl) as string}
@@ -485,6 +496,42 @@ export function Profile({
           the account effectively goes dark on this device. A server-side
           delete endpoint will be added later; until then this is the safest
           "deactivate" we can offer end users. */}
+      {/* Full-screen profile picture viewer. Tap anywhere to dismiss.
+          Fills the viewport (100vw x 100vh) so the image fits the whole screen. */}
+      {picFullscreen && (user.profilePicUrl || user.avatarUrl) && (
+        <div
+          onClick={() => setPicFullscreen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 10000,
+            background: "#000",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <img
+            src={(user.profilePicUrl || user.avatarUrl) as string}
+            alt=""
+            style={{
+              width: "100vw", height: "100vh",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+          <button
+            onClick={(e) => { e.stopPropagation(); setPicFullscreen(false); }}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: "max(env(safe-area-inset-top), 18px)", right: 18,
+              width: 38, height: 38, borderRadius: 19,
+              background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.25)",
+              color: "#fff", fontSize: 22, lineHeight: 1, fontWeight: 700,
+              display: "grid", placeItems: "center", cursor: "pointer",
+            }}
+          >×</button>
+        </div>
+      )}
+
       {deactivateOpen && (
         <DeactivateSheet
           t={t}
