@@ -844,12 +844,80 @@ function ArrowRightIcon({ color }: { color: string }) {
 // ratio difference). Stroke uses the active theme accent at low opacity so
 // it's a guide, not a focal point.
 function PoseOutlineGuide({ accent, female }: { accent: string; female: boolean }) {
-  // Female: narrower shoulders, wider hips. Male: wider shoulders, narrower hips.
-  const shoulderX = female ? 30 : 36;
-  const hipX = female ? 28 : 22;
+  // Continuous closed-path anatomical outline matching the user-approved
+  // reference (clean black outline of a standing figure, arms slightly out
+  // from body with hands at hip level, feet together). Female and male share
+  // the same path topology — only shoulder width, waist taper, and hip width
+  // differ.
+  const cx = 100;
+  const headCy = 38;
+  const headRx = female ? 17 : 19;
+  const headRy = female ? 22 : 23;
+  const neckHalf = female ? 8 : 9;
+  const neckTop = headCy + headRy - 2;
+  const shoulderY = 88;
+  const shoulderHalf = female ? 44 : 52;
+  const armpitY = 108;
+  const waistY = 210;
+  const waistHalf = female ? 30 : 36;
+  const hipY = 260;
+  const hipHalf = female ? 46 : 44;
+  const elbowOffset = female ? 8 : 10;
+  const wristY = 268;
+  const armOuterTop = shoulderHalf + 2;
+  const armOuterMid = shoulderHalf + elbowOffset + 4;
+  const armOuterWrist = hipHalf + 4;
+  const armInnerWrist = hipHalf - 2;
+  const armInnerArmpit = shoulderHalf - 4;
+  const handTipY = 288;
+  const handHalf = 8;
+  const innerThighX = 5;
+  const kneeY = 380;
+  const kneeOuterHalf = 22;
+  const ankleY = 498;
+  const ankleOuterHalf = 14;
+  const footTipY = 510;
+  const footOuterHalf = 22;
+  const d = [
+    `M ${cx} ${headCy - headRy}`,
+    `C ${cx + headRx} ${headCy - headRy}, ${cx + headRx} ${headCy + headRy - 6}, ${cx + neckHalf} ${neckTop}`,
+    `L ${cx + neckHalf + 2} ${neckTop + 6}`,
+    `Q ${cx + shoulderHalf - 8} ${shoulderY - 4}, ${cx + armOuterTop} ${shoulderY}`,
+    `Q ${cx + armOuterMid} ${(shoulderY + wristY) / 2 - 10}, ${cx + armOuterWrist} ${wristY}`,
+    `Q ${cx + armOuterWrist + handHalf} ${wristY + 6}, ${cx + armOuterWrist + 2} ${handTipY}`,
+    `Q ${cx + armOuterWrist - 4} ${handTipY + 4}, ${cx + armInnerWrist} ${handTipY - 4}`,
+    `Q ${cx + armInnerWrist + 2} ${(wristY + armpitY) / 2}, ${cx + armInnerArmpit} ${armpitY}`,
+    `Q ${cx + waistHalf + 4} ${(armpitY + waistY) / 2}, ${cx + waistHalf} ${waistY}`,
+    `Q ${cx + hipHalf} ${(waistY + hipY) / 2 + 8}, ${cx + hipHalf - 2} ${hipY}`,
+    `Q ${cx + kneeOuterHalf + 6} ${(hipY + kneeY) / 2}, ${cx + kneeOuterHalf} ${kneeY}`,
+    `Q ${cx + ankleOuterHalf + 4} ${(kneeY + ankleY) / 2 + 10}, ${cx + ankleOuterHalf} ${ankleY}`,
+    `L ${cx + footOuterHalf} ${footTipY}`,
+    `L ${cx + innerThighX + 2} ${footTipY}`,
+    `L ${cx + innerThighX + 2} ${ankleY - 2}`,
+    `Q ${cx + innerThighX + 4} ${kneeY}, ${cx + innerThighX} ${(hipY + kneeY) / 2}`,
+    `L ${cx + innerThighX} ${hipY + 4}`,
+    `Q ${cx} ${hipY + 2}, ${cx - innerThighX} ${hipY + 4}`,
+    `L ${cx - innerThighX} ${(hipY + kneeY) / 2}`,
+    `Q ${cx - innerThighX - 4} ${kneeY}, ${cx - innerThighX - 2} ${ankleY - 2}`,
+    `L ${cx - innerThighX - 2} ${footTipY}`,
+    `L ${cx - footOuterHalf} ${footTipY}`,
+    `L ${cx - ankleOuterHalf} ${ankleY}`,
+    `Q ${cx - ankleOuterHalf - 4} ${(kneeY + ankleY) / 2 + 10}, ${cx - kneeOuterHalf} ${kneeY}`,
+    `Q ${cx - kneeOuterHalf - 6} ${(hipY + kneeY) / 2}, ${cx - hipHalf + 2} ${hipY}`,
+    `Q ${cx - hipHalf} ${(waistY + hipY) / 2 + 8}, ${cx - waistHalf} ${waistY}`,
+    `Q ${cx - waistHalf - 4} ${(armpitY + waistY) / 2}, ${cx - armInnerArmpit} ${armpitY}`,
+    `Q ${cx - armInnerWrist - 2} ${(wristY + armpitY) / 2}, ${cx - armInnerWrist} ${handTipY - 4}`,
+    `Q ${cx - armOuterWrist + 4} ${handTipY + 4}, ${cx - armOuterWrist - 2} ${handTipY}`,
+    `Q ${cx - armOuterWrist - handHalf} ${wristY + 6}, ${cx - armOuterWrist} ${wristY}`,
+    `Q ${cx - armOuterMid} ${(shoulderY + wristY) / 2 - 10}, ${cx - armOuterTop} ${shoulderY}`,
+    `Q ${cx - shoulderHalf + 8} ${shoulderY - 4}, ${cx - neckHalf - 2} ${neckTop + 6}`,
+    `L ${cx - neckHalf} ${neckTop}`,
+    `C ${cx - headRx} ${headCy + headRy - 6}, ${cx - headRx} ${headCy - headRy}, ${cx} ${headCy - headRy}`,
+    "Z",
+  ].join(" ");
   return (
     <svg
-      viewBox="0 0 100 220"
+      viewBox="0 0 200 520"
       aria-hidden="true"
       style={{
         position: "absolute", top: "50%", left: "50%",
@@ -859,51 +927,14 @@ function PoseOutlineGuide({ accent, female }: { accent: string; female: boolean 
       }}
       preserveAspectRatio="xMidYMid meet"
     >
-      <g
+      <path
+        d={d}
         fill="none"
         stroke={accent}
-        strokeWidth="1.4"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-      >
-        {/* Head */}
-        <ellipse cx="50" cy="18" rx="10" ry="12" />
-        {/* Neck */}
-        <path d={`M44,30 L${50 - shoulderX / 2 + 4},42 M56,30 L${50 + shoulderX / 2 - 4},42`} />
-        {/* Torso: shoulders → waist → hips (front silhouette) */}
-        <path
-          d={`
-            M${50 - shoulderX},42
-            Q${50 - shoulderX + 4},75 ${50 - 14},95
-            Q${50 - hipX},112 ${50 - hipX},120
-            L${50 - hipX + 6},122
-          `}
-        />
-        <path
-          d={`
-            M${50 + shoulderX},42
-            Q${50 + shoulderX - 4},75 ${50 + 14},95
-            Q${50 + hipX},112 ${50 + hipX},120
-            L${50 + hipX - 6},122
-          `}
-        />
-        {/* Arms — slightly out, palms forward (matches the framing prompt) */}
-        <path d={`M${50 - shoulderX},42 Q${50 - shoulderX - 6},75 ${50 - shoulderX - 8},108`} />
-        <path d={`M${50 + shoulderX},42 Q${50 + shoulderX + 6},75 ${50 + shoulderX + 8},108`} />
-        {/* Hands (small ovals at end of arms) */}
-        <ellipse cx={50 - shoulderX - 8} cy="114" rx="3.2" ry="5" />
-        <ellipse cx={50 + shoulderX + 8} cy="114" rx="3.2" ry="5" />
-        {/* Legs — inner + outer lines for each leg, slight stance */}
-        <path d={`M${50 - hipX + 6},122 Q${50 - 14},160 ${50 - 12},205`} />
-        <path d={`M${50 - 4},122 Q${50 - 6},160 ${50 - 6},205`} />
-        <path d={`M${50 + hipX - 6},122 Q${50 + 14},160 ${50 + 12},205`} />
-        <path d={`M${50 + 4},122 Q${50 + 6},160 ${50 + 6},205`} />
-        {/* Feet */}
-        <path d={`M${50 - 12},205 L${50 - 16},210 L${50 - 4},210 Z`} />
-        <path d={`M${50 + 4},210 L${50 + 16},210 L${50 + 12},205 Z`} />
-        {/* Centerline tick at waist — helps users center themselves */}
-        <path d="M50,95 L50,105" strokeDasharray="2 3" opacity="0.7" />
-      </g>
+      />
     </svg>
   );
 }
