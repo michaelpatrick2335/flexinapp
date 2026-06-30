@@ -1522,15 +1522,23 @@ function DumbbellGlyph({ color, size = 28 }: { color: string; size?: number }) {
 // field. Votes auto-reset each Sunday so the squad re-picks weekly.
 function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) {
   const email = (() => { try { return getUserEmail() || "anon"; } catch { return "anon"; } })().toLowerCase();
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun
+  const isSunday = dow === 0;
   const weekKey = (() => {
-    // Sun-anchored week key: first Sunday of current week in local tz
-    const now = new Date();
-    const dow = now.getDay(); // 0=Sun
     const sun = new Date(now.getTime() - dow * 86400000);
     sun.setHours(0, 0, 0, 0);
     return `${sun.getFullYear()}-${sun.getMonth() + 1}-${sun.getDate()}`;
   })();
-  const storeKey = `flexin.prVote:${email}:${(squadName || "default").toLowerCase()}:${weekKey}`;
+  const lastWeekKey = (() => {
+    const lastSun = new Date(now.getTime() - (dow + 7) * 86400000);
+    lastSun.setHours(0, 0, 0, 0);
+    return `${lastSun.getFullYear()}-${lastSun.getMonth() + 1}-${lastSun.getDate()}`;
+  })();
+  const squadKey = (squadName || "default").toLowerCase();
+  const storeKey = `flexin.prVote:${email}:${squadKey}:${weekKey}`;
+  const lastStoreKey = `flexin.prVote:${email}:${squadKey}:${lastWeekKey}`;
+  const winnerSeenKey = `flexin.prWinnerSeen:${email}:${squadKey}:${weekKey}`;
   type VoteState = { options: { lift: string; votes: string[] }[]; myVote?: string };
   const DEFAULT_LIFTS = ["Bench Press", "Back Squat", "Deadlift", "Overhead Press"];
 
@@ -1542,6 +1550,40 @@ function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) 
     return { options: DEFAULT_LIFTS.map((l) => ({ lift: l, votes: [] })) };
   });
   const [newLift, setNewLift] = useState("");
+
+  // Sunday reset popup: announce last week's top-voted lift as this week's
+  // squad PR challenge. Tapping "Log PR" pushes a feed event so it shows in
+  // the user's PR Stats popup on the dashboard.
+  const lastWinner = React.useMemo<{ lift: string; votes: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem(lastStoreKey);
+      if (!raw) return null;
+      const ls = JSON.parse(raw) as VoteState;
+      const sorted = [...ls.options].sort((a, b) => b.votes.length - a.votes.length);
+      const top = sorted[0];
+      if (!top || top.votes.length === 0) return null;
+      return { lift: top.lift, votes: top.votes.length };
+    } catch { return null; }
+  }, [lastStoreKey]);
+  const [showWinnerPopup, setShowWinnerPopup] = useState<boolean>(() => {
+    if (!isSunday || !lastWinner) return false;
+    try { return localStorage.getItem(winnerSeenKey) !== "1"; } catch { return true; }
+  });
+  function dismissWinner() {
+    try { localStorage.setItem(winnerSeenKey, "1"); } catch {}
+    setShowWinnerPopup(false);
+  }
+  function logWinnerAsPR() {
+    if (!lastWinner) return dismissWinner();
+    try {
+      pushFeedEvent(email, {
+        userName: "You",
+        message: `${lastWinner.lift} — squad PR of the week`,
+        kind: "pr",
+      });
+    } catch {}
+    dismissWinner();
+  }
 
   function persist(next: VoteState) {
     setState(next);
@@ -1573,9 +1615,18 @@ function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) 
   const sorted = [...state.options].sort((a, b) => b.votes.length - a.votes.length);
   const leader = sorted[0];
   const totalVotes = state.options.reduce((s, o) => s + o.votes.length, 0);
+  const hasMyVote = !!state.myVote;
 
   return (
     <section style={{ padding: "12px 18px 0" }}>
+      {showWinnerPopup && lastWinner && (
+        <SundayPRWinnerModal
+          t={t}
+          winner={lastWinner}
+          onLog={logWinnerAsPR}
+          onClose={dismissWinner}
+        />
+      )}
       <Card t={t}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <BoltIcon color={t.accent} size={18} />
@@ -1590,6 +1641,25 @@ function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) 
         <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 10, lineHeight: 1.4 }}>
           Group picks the lift to hit this week. Resets Sunday.
         </div>
+
+        {/* AI coach nudge — reminds the user to vote until they cast one. */}
+        {!hasMyVote && (
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8,
+            background: `${t.accent}15`, border: `1px solid ${t.accent}40`,
+            borderRadius: 12, padding: "8px 10px", marginBottom: 10,
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              background: t.accent, color: t.accentText,
+              display: "grid", placeItems: "center",
+              fontSize: 10, fontWeight: 800, letterSpacing: 0.4,
+            }}>AI</div>
+            <div style={{ fontSize: 11, color: t.text, lineHeight: 1.4 }}>
+              <strong>Coach Max:</strong> Cast your vote — the lift with the most votes by Sunday becomes this week's squad PR.
+            </div>
+          </div>
+        )}
 
         {leader && leader.votes.length > 0 && (
           <div style={{
@@ -1662,5 +1732,67 @@ function WeeklyPRChallengeCard({ t, squadName }: { t: any; squadName: string }) 
         </div>
       </Card>
     </section>
+  );
+}
+
+// ════════════════════════════ SUNDAY PR WINNER MODAL ════════════════════════════
+// Shown when the user opens the Squad page on Sunday and last week had a
+// top-voted lift. Lets them log the winning lift as a PR in one tap so it
+// appears in their Dashboard PR Stats popup.
+function SundayPRWinnerModal({
+  t, winner, onLog, onClose,
+}: {
+  t: any;
+  winner: { lift: string; votes: number };
+  onLog: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+        zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 380,
+          background: t.bgElevated, border: `1px solid ${t.border}`,
+          borderRadius: 20, padding: 22, color: t.text,
+          boxShadow: `0 16px 48px rgba(0,0,0,0.55)`,
+        }}
+      >
+        <div style={{
+          fontSize: 10, fontWeight: 800, letterSpacing: 1.5, color: t.accent, marginBottom: 6,
+        }}>WEEK RESET • SUNDAY</div>
+        <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, marginBottom: 10 }}>
+          This week's PR is <span style={{ color: t.accent }}>{winner.lift}</span>
+        </div>
+        <div style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.5, marginBottom: 16 }}>
+          The squad voted ({winner.votes} vote{winner.votes === 1 ? "" : "s"}). Tap below to log it as your PR — it'll show up in your dashboard PR Stats.
+        </div>
+        <button
+          onClick={onLog}
+          style={{
+            width: "100%", padding: "14px 16px", borderRadius: 14, border: "none",
+            background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})`,
+            color: t.accentText, fontSize: 13, fontWeight: 800, letterSpacing: 1.5,
+            cursor: "pointer", boxShadow: `0 8px 24px ${t.accentGlow}`,
+          }}
+        >LOG PR</button>
+        <button
+          onClick={onClose}
+          style={{
+            width: "100%", marginTop: 8, padding: "12px 16px", borderRadius: 14,
+            background: "transparent", border: `1px solid ${t.border}`,
+            color: t.textMuted, fontSize: 12, fontWeight: 700, letterSpacing: 1,
+            cursor: "pointer",
+          }}
+        >MAYBE LATER</button>
+      </div>
+    </div>
   );
 }

@@ -79,6 +79,9 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [pickerUploading, setPickerUploading] = useState(false);
+  // PR stats popup is opened by tapping the top-right Weekly Scan pill on the
+  // hero. Surfaces the user's logged PRs in one place per the v7 spec.
+  const [prStatsOpen, setPrStatsOpen] = useState(false);
 
   // First-login goal body type prompt. Dismissal is keyed by user email
   // in localStorage so the modal only ever shows once per user on this
@@ -198,7 +201,12 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
         isFemale={isFemale}
         onOpenProfile={onOpenProfile}
         onOpenPhotoPicker={() => { setPickerError(null); setPickerOpen(true); }}
+        onOpenPRStats={() => setPrStatsOpen(true)}
       />
+
+      {prStatsOpen && (
+        <PRStatsModal t={t} onClose={() => setPrStatsOpen(false)} />
+      )}
 
       {/* ═════════════════════ HOME PHOTO PICKER MODAL ═════════════════════ */}
       {pickerOpen && (
@@ -237,7 +245,7 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
 // ════════════════════════════ HERO ════════════════════════════
 function HeroSection({
   t, userName, streakDays, formLevel, formRank, xp, xpToNext, xpPct,
-  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile, onOpenPhotoPicker,
+  energy, bodyDeltas, weeklyScanDaysLeft, unreadAlerts, isPremium, silhouette, heroPhoto, isFemale, onOpenProfile, onOpenPhotoPicker, onOpenPRStats,
 }: {
   t: any; userName: string; streakDays: number; formLevel: number; formRank: string;
   xp: number; xpToNext: number; xpPct: number;
@@ -246,6 +254,7 @@ function HeroSection({
   weeklyScanDaysLeft: number; unreadAlerts: number; isPremium: boolean;
   silhouette: string; heroPhoto: string | null; isFemale: boolean;
   onOpenProfile: () => void; onOpenPhotoPicker: () => void;
+  onOpenPRStats: () => void;
 }) {
   return (
     <div style={{ position: "relative", paddingTop: "max(env(safe-area-inset-top), 14px)", paddingBottom: 8, minHeight: 520, overflow: "hidden" }}>
@@ -364,7 +373,6 @@ function HeroSection({
               {userName}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-              <span style={{ fontSize: 14 }}>🔥</span>
               <span style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>{streakDays} day streak</span>
             </div>
             <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>Keep showing up.</div>
@@ -408,17 +416,23 @@ function HeroSection({
 
         {/* RIGHT column: weekly scan + body deltas */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 18 }}>
-          {/* Weekly Scan card */}
-          <div style={{
-            background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 12,
-            padding: "8px 12px", display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <CalendarIcon color={t.accent} />
+          {/* Weekly Scan card — doubles as the PR Stats entry point. Tapping
+              opens a popup with the user's logged personal records. */}
+          <button
+            onClick={onOpenPRStats}
+            aria-label="View PR stats"
+            style={{
+              background: t.bgElevated, border: `1px solid ${t.border}`, borderRadius: 12,
+              padding: "8px 12px", display: "flex", alignItems: "center", gap: 8,
+              cursor: "pointer", color: t.text, textAlign: "left",
+            }}
+          >
+            <BoltIcon color={t.accent} size={14} />
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 11, color: t.text, fontWeight: 600 }}>Weekly Scan</span>
-              <span style={{ fontSize: 11, color: t.textMuted }}>{weeklyScanDaysLeft}d left</span>
+              <span style={{ fontSize: 11, color: t.text, fontWeight: 700, letterSpacing: 0.8 }}>PR STATS</span>
+              <span style={{ fontSize: 10, color: t.textMuted }}>Scan: {weeklyScanDaysLeft}d left</span>
             </div>
-          </div>
+          </button>
 
           {/* Body Deltas */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-end", paddingRight: 2 }}>
@@ -858,6 +872,90 @@ function CalendarIcon({ color, size = 16 }: { color: string; size?: number }) {
     </svg>
   );
 }
+// ════════════════════════════ PR STATS MODAL ════════════════════════════
+// Reads PR feed events (kind === "pr") from local feed storage and shows
+// a quick summary keyed by exercise name. Replaces the old Weekly Scan
+// pill's no-op behavior. PRs are stored locally via pushFeedEvent so this
+// works offline and does not need a backend round-trip.
+function PRStatsModal({ t, onClose }: { t: any; onClose: () => void }) {
+  const email = (getUserEmail() || "anon").toLowerCase();
+  // Aggregate PRs across global + scoped feed buckets.
+  const all = React.useMemo(() => {
+    try { return getFeed(email, null).filter((e) => e?.kind === "pr"); }
+    catch { return [] as any[]; }
+  }, [email]);
+  // Group by message-derived lift name (best-effort: take the first token
+  // before " — " or full message). Each entry shows the most recent.
+  const groups = new Map<string, { message: string; createdAt: number; count: number }>();
+  for (const evt of all) {
+    const m = String(evt.message || "PR");
+    const key = m.split(" — ")[0].split(" – ")[0].slice(0, 64);
+    const prev = groups.get(key);
+    if (!prev || evt.createdAt > prev.createdAt) {
+      groups.set(key, { message: m, createdAt: evt.createdAt, count: (prev?.count || 0) + 1 });
+    } else {
+      prev.count += 1;
+    }
+  }
+  const items = Array.from(groups.values()).sort((a, b) => b.createdAt - a.createdAt);
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+        zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 18,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 380, maxHeight: "80vh", overflow: "auto",
+          background: t.bgElevated, border: `1px solid ${t.border}`,
+          borderRadius: 18, padding: 18, color: t.text,
+          boxShadow: `0 12px 40px rgba(0,0,0,0.5)`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BoltIcon color={t.accent} size={18} />
+            <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: 1.5 }}>PR STATS</span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "transparent", border: "none", color: t.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}
+            aria-label="Close"
+          >×</button>
+        </div>
+        {items.length === 0 ? (
+          <div style={{ color: t.textMuted, fontSize: 13, lineHeight: 1.5, padding: "12px 4px" }}>
+            No PRs logged yet. Hit a personal record on any lift and it'll show up here.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {items.map((it, i) => (
+              <div key={i} style={{
+                background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 12,
+                padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {it.message}
+                  </div>
+                  <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+                    {new Date(it.createdAt).toLocaleDateString()} • {it.count} PR{it.count === 1 ? "" : "s"}
+                  </div>
+                </div>
+                <BoltIcon color={t.accent} size={14} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BoltIcon({ color, size = 14 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -865,12 +963,15 @@ function BoltIcon({ color, size = 14 }: { color: string; size?: number }) {
     </svg>
   );
 }
+// Matches the bold dumbbell used on the workout page (LogWorkout `upper`).
 function DumbbellIcon({ color, size = 18 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect x="2" y="9" width="3" height="6" rx="1" stroke={color} strokeWidth="1.6" />
-      <rect x="19" y="9" width="3" height="6" rx="1" stroke={color} strokeWidth="1.6" />
-      <path d="M5 12h2M17 12h2M7 10h10v4H7z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+      <rect x="2" y="7" width="3.5" height="10" rx="1" fill={color} />
+      <rect x="5" y="5" width="2.5" height="14" rx="0.8" fill={color} />
+      <rect x="7" y="10.5" width="10" height="3" fill={color} />
+      <rect x="16.5" y="5" width="2.5" height="14" rx="0.8" fill={color} />
+      <rect x="18.5" y="7" width="3.5" height="10" rx="1" fill={color} />
     </svg>
   );
 }

@@ -39,15 +39,22 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addDraft, setAddDraft] = useState("");
 
-  const { data } = useQuery<CategoriesPayload>({
+  const { data, isLoading } = useQuery<CategoriesPayload>({
     queryKey: ["/api/workout-categories"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 5 * 60_000,
   });
 
-  // Server-provided day tiles first, then any custom days the user has added.
+  // Server-provided day tiles ALWAYS render first. Custom user-added days
+  // (saved in localStorage from previous sessions, e.g. "Yoga") were
+  // previously visible BEFORE the server list finished loading because we
+  // rendered customs unconditionally — making it look like a random custom
+  // workout "popped up" before the defaults. To prevent that, we hold back
+  // custom days until the server payload arrives.
   const baseCategories = data?.categories || [];
-  const categories = [...baseCategories, ...customDays];
+  const categories = baseCategories.length === 0
+    ? [] // still loading — don't render orphan custom days alone
+    : [...baseCategories, ...customDays];
   const selected = categories.find((c) => c.key === selectedKey) ?? categories[0];
 
   function persistCustom(next: Category[]) {
@@ -98,6 +105,11 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
           a static category. Any saved custom days persisted to localStorage
           render below the server tiles. */}
       <div style={{ padding: "0 14px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
+        {isLoading && categories.length === 0 && (
+          <div style={{ color: t.textMuted, fontSize: 13, textAlign: "center", padding: 24 }}>
+            Loading workouts…
+          </div>
+        )}
         {categories.map((cat) => {
           const isSelected = selected?.key === cat.key;
           const isCustomEntry = cat.key === "custom";
@@ -134,12 +146,18 @@ export function LogWorkout({ onBack, onSelectCategory }: LogWorkoutProps) {
                 transition: "all 120ms ease",
               }}
             >
+              {/* Per v7 spec: replace per-category SVG glyphs with a plain
+                  white circle. Keeps the layout/size identical so tiles
+                  don't jump, while giving every day a clean uniform mark. */}
               <div style={{
                 width: 32, height: 32, display: "grid", placeItems: "center",
-                color: isSelected ? t.accentText : t.accent,
                 flexShrink: 0,
               }}>
-                <CategoryIcon icon={cat.icon} color={isSelected ? t.accentText : t.accent} />
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: isSelected ? t.accentText : "#ffffff",
+                  boxShadow: isSelected ? "none" : "0 0 0 1px rgba(255,255,255,0.15)",
+                }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.1 }}>{cat.name}</div>

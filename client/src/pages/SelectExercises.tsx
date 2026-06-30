@@ -23,6 +23,18 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
   const [customs, setCustoms] = useState<string[]>([]);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customDraft, setCustomDraft] = useState("");
+  // "Track stats on all lifts" — when on, every selected exercise reveals
+  // sets / reps / weight inputs the user can fill in inline. Defaults off
+  // for the fast "just log a workout" flow.
+  const [trackStats, setTrackStats] = useState(false);
+  type StatRow = { sets: string; reps: string; weight: string };
+  const [stats, setStats] = useState<Record<string, StatRow>>({});
+  function updateStat(name: string, field: keyof StatRow, value: string) {
+    setStats((prev) => {
+      const cur: StatRow = prev[name] || { sets: "", reps: "", weight: "" };
+      return { ...prev, [name]: { ...cur, [field]: value } };
+    });
+  }
 
   const { data, isLoading } = useQuery<ExercisesPayload>({
     queryKey: [`/api/exercises?category=${category.key}`],
@@ -37,11 +49,28 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
 
   const completeMutation = useMutation({
     mutationFn: async () => {
+      // When the user opts in to stat tracking, fold the per-lift sets/reps/weight
+      // into the workout `notes` so the data is preserved server-side.
+      const statNotes = trackStats
+        ? Array.from(selected)
+            .map((name) => {
+              const s = stats[name];
+              if (!s) return null;
+              const parts = [
+                s.sets && `${s.sets} sets`,
+                s.reps && `${s.reps} reps`,
+                s.weight && `${s.weight} lbs`,
+              ].filter(Boolean);
+              return parts.length ? `${name}: ${parts.join(" × ")}` : null;
+            })
+            .filter(Boolean)
+            .join("\n")
+        : null;
       return apiRequest("POST", "/api/workout", {
         category: category.key,
         exerciseNames: Array.from(selected),
         durationSeconds: 0,
-        notes: null,
+        notes: statNotes && statNotes.length > 0 ? statNotes : null,
       });
     },
     onSuccess: () => {
@@ -54,6 +83,19 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
           message: `crushed ${category.name} — ${count} exercise${count === 1 ? "" : "s"}`,
           kind: "workout_logged",
         });
+        // If stats were tracked, also emit a PR event per lift with a weight
+        // so it surfaces in the dashboard PR Stats popup.
+        if (trackStats) {
+          for (const name of Array.from(selected)) {
+            const s = stats[name];
+            if (!s || !s.weight) continue;
+            pushFeedEvent(getUserEmail() || "anon", {
+              userName: "You",
+              message: `${name} — ${s.weight} lbs${s.reps ? ` x ${s.reps}` : ""}${s.sets ? ` x ${s.sets} sets` : ""}`,
+              kind: "pr",
+            });
+          }
+        }
       } catch {}
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       onCompleted();
@@ -201,6 +243,40 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
 }
 
 // ─── Checkbox ─────────────────────────────────────────────────────────
+function StatField({
+  t, label, value, onChange, suffix,
+}: {
+  t: any; label: string; value: string; onChange: (v: string) => void; suffix?: string;
+}) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 10, color: t.textMuted, letterSpacing: 1, fontWeight: 700 }}>
+        {label.toUpperCase()}
+      </span>
+      <div style={{
+        display: "flex", alignItems: "center",
+        background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 10,
+        padding: "6px 8px",
+      }}>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
+          onClick={(e) => e.stopPropagation()}
+          inputMode="numeric"
+          placeholder="0"
+          style={{
+            flex: 1, minWidth: 0, background: "transparent", border: "none",
+            color: t.text, fontSize: 14, fontWeight: 700, outline: "none",
+          }}
+        />
+        {suffix && (
+          <span style={{ fontSize: 10, color: t.textMuted, marginLeft: 4 }}>{suffix}</span>
+        )}
+      </div>
+    </label>
+  );
+}
+
 function Checkbox({ checked, t }: { checked: boolean; t: any }) {
   return (
     <div style={{
