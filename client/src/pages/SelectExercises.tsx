@@ -27,6 +27,10 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
   // sets/reps/weight inputs + a "LOG PR" button. The checkbox on the right
   // still toggles selection independently.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Tracks lifts that just had LOG LIFT / LOG PR pressed so we can
+  // (a) disable the buttons to prevent duplicate feed events, and
+  // (b) collapse the dropdown for confirmation.
+  const [loggingNow, setLoggingNow] = useState<Set<string>>(new Set());
   type StatRow = { sets: string; reps: string; weight: string };
   const [stats, setStats] = useState<Record<string, StatRow>>({});
   function updateStat(name: string, field: keyof StatRow, value: string) {
@@ -243,18 +247,23 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
                   padding: "4px 6px 14px 30px",
                   display: "flex", flexDirection: "column", gap: 10,
                 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                    <StatField t={t} label="Sets" value={row.sets}
-                      onChange={(v) => updateStat(name, "sets", v)} />
-                    <StatField t={t} label="Reps" value={row.reps}
-                      onChange={(v) => updateStat(name, "reps", v)} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <StatField t={t} label="Weight" value={row.weight} suffix="lbs"
                       onChange={(v) => updateStat(name, "weight", v)} />
+                    <StatField t={t} label="Reps" value={row.reps}
+                      onChange={(v) => updateStat(name, "reps", v)} />
+                    <StatField t={t} label="Sets" value={row.sets}
+                      onChange={(v) => updateStat(name, "sets", v)} />
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
-                      onClick={() => logLiftForLift(name)}
-                      disabled={!(row.weight || row.reps || row.sets)}
+                      onClick={() => {
+                        if (loggingNow.has(name)) return;
+                        setLoggingNow((p) => new Set(p).add(name));
+                        logLiftForLift(name);
+                        setExpanded((p) => { const n = new Set(p); n.delete(name); return n; });
+                      }}
+                      disabled={!(row.weight || row.reps || row.sets) || loggingNow.has(name)}
                       style={{
                         padding: "8px 14px", borderRadius: 10,
                         border: `1.5px solid ${t.border}`,
@@ -269,8 +278,13 @@ export function SelectExercises({ category, onBack, onCompleted }: SelectExercis
                       LOG LIFT
                     </button>
                     <button
-                      onClick={() => logPRForLift(name)}
-                      disabled={!canLogPR}
+                      onClick={() => {
+                        if (loggingNow.has(name)) return;
+                        setLoggingNow((p) => new Set(p).add(name));
+                        logPRForLift(name);
+                        setExpanded((p) => { const n = new Set(p); n.delete(name); return n; });
+                      }}
+                      disabled={!canLogPR || loggingNow.has(name)}
                       style={{
                         padding: "8px 14px", borderRadius: 10,
                         border: "none",

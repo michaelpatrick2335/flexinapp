@@ -101,17 +101,7 @@ export function AvatarSelect({
         >
           CHOOSE YOUR <span style={{ color: t.accent }}>AVATAR</span>
         </h1>
-        <p
-          style={{
-            fontSize: "0.92rem",
-            color: t.textMuted,
-            margin: 0,
-            textAlign: "center",
-            lineHeight: 1.4,
-          }}
-        >
-          Pick the silhouette that best represents you. You can change it later.
-        </p>
+
       </div>
 
       {/* 2-column grid of avatar cards */}

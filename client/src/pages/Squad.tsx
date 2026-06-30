@@ -441,16 +441,24 @@ export function Squad({ onOpenFeed, onOpenSquad, onOpenLogWorkout, onOpenProgres
             </button>
           </div>
 
-          {activity.map((a) => (
-            <ActivityRow
-              key={a.id}
-              t={t}
-              item={a}
-              member={memberByName(a.member)}
-              isSelf={a.member === "You"}
-              onFlex={() => broadcastFlex(a.text || "a new lift")}
-            />
-          ))}
+          <div style={{
+            // Lock the list height once there are more than 5 rows so the
+            // card doesn't grow unbounded — each row is ~58px tall.
+            maxHeight: activity.length > 5 ? 300 : undefined,
+            overflowY: activity.length > 5 ? "auto" : "visible",
+            WebkitOverflowScrolling: "touch",
+          }}>
+            {activity.map((a) => (
+              <ActivityRow
+                key={a.id}
+                t={t}
+                item={a}
+                member={memberByName(a.member)}
+                isSelf={a.member === "You"}
+                onFlex={() => broadcastFlex(a.text || "a new lift")}
+              />
+            ))}
+          </div>
 
           {/* Reactions strip */}
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>

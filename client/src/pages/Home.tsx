@@ -134,10 +134,11 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
   const { user, bodyDeltas, energy, weeklyScanDaysLeft, monthStats, evolutionTimeline } = data;
 
   // ── Home photo picker helpers ────────────────────────────────────────
-  // The picker can pass us either a fresh data URL (from <input type=file>
-  // or @capacitor/camera) OR a regular http(s) URL pointing at a previously
-  // uploaded progress-scan photo. The /api/home-photo endpoint only accepts
-  // `data:image/...;base64,...` payloads, so we normalize first.
+  // The picker passes us either a fresh data URL (from <input type=file>
+  // or @capacitor/camera) OR a data URL pulled from a previously uploaded
+  // progress-scan (which is stored uncompressed, up to ~8 MB). The
+  // /api/home-photo endpoint caps payloads at 1.5 MB, so we always
+  // re-compress before posting.
   async function urlToDataUrl(src: string): Promise<string> {
     if (src.startsWith("data:")) return src;
     const blob = await fetch(src).then((r) => {
@@ -152,11 +153,40 @@ export function Home({ onOpenLogWorkout, onOpenSquad, onOpenProfile, onOpenFeed,
     });
   }
 
+  // Resize + re-encode as JPEG so we stay under the 1.5 MB server cap.
+  // Reuses the same approach as Profile.tsx's compressDataUrl.
+  async function compressForHomePhoto(dataUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSide = 1024;
+        let { width, height } = img;
+        const ratio = Math.min(1, maxSide / Math.max(width, height));
+        width = Math.max(1, Math.round(width * ratio));
+        height = Math.max(1, Math.round(height * ratio));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas unavailable"));
+        ctx.drawImage(img, 0, 0, width, height);
+        try { resolve(canvas.toDataURL("image/jpeg", 0.82)); }
+        catch (e) { reject(e); }
+      };
+      img.onerror = () => reject(new Error("Could not decode photo"));
+      img.src = dataUrl;
+    });
+  }
+
   async function uploadHomePhoto(srcUrl: string) {
     setPickerUploading(true);
     setPickerError(null);
     try {
-      const dataUrl = await urlToDataUrl(srcUrl);
+      const raw = await urlToDataUrl(srcUrl);
+      // Always compress — stored progress scans can be >1.5 MB and the
+      // home-photo endpoint will reject them with a 413 otherwise.
+      let dataUrl = raw;
+      try { dataUrl = await compressForHomePhoto(raw); } catch {}
       const email = getUserEmail();
       const resp = await fetch(`${API_BASE}/api/home-photo`, {
         method: "POST",
@@ -616,13 +646,24 @@ function SquadFeedCard({ t, feed, onOpenFeed, onOpenSquad }: { t: any; feed: any
           View all
         </button>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: "flex", flexDirection: "column", gap: 10,
+          // Cap at ~3 rows (each row ~46px including gap) so the card stays
+          // the same height as activity grows. After 3, the inner list
+          // becomes scrollable instead of pushing the rest of the page down.
+          maxHeight: feed.length > 3 ? 150 : undefined,
+          overflowY: feed.length > 3 ? "auto" : "visible",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         {feed.length === 0 && (
           <div style={{ color: t.textMuted, fontSize: 11, lineHeight: 1.4 }}>
             No activity yet. Tap to name your squad and log your first workout.
           </div>
         )}
-        {feed.slice(0, 4).map((f) => (
+        {feed.map((f) => (
           <div key={f.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
             {f.avatarUrl ? (
               <img
